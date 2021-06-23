@@ -4,11 +4,12 @@ import torch.nn.functional as F
 
 class BasicModel(nn.Module):
     ''' The module class performs building network according to config'''
-    def __init__(self, activation):
+    def __init__(self, activation, covariates):
         ''' Initialize BasicModel class
 
         Args:
             activation: string, name of activation function to use
+            covariates: int, number of covariates, needed for size of first layer
 
         Returns:
             torch.nn Module object, built sequential network
@@ -21,7 +22,7 @@ class BasicModel(nn.Module):
         # Flag to in/exclude normalization layers
         self.norm = True
         # Default dimensions of fully connected layers
-        self.dims = [10, 4, 1]#10, 17, 17, 17, 1]
+        self.dims = [covariates, 4, 1]#10, 17, 17, 17, 1]
         # Activation type to use
         self.activation = activation
         # Build network using class function (below)

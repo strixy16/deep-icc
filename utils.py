@@ -18,9 +18,10 @@ class SurvivalDataset(Dataset):
         # Get time and event indicator columns out of dataframe
         self.data = list(zip(dataset.time, dataset.event))
         self.len = len(dataset)
-        # Normalize covariate data with class function
         print('=> load {} samples'.format(self.len))
-        self._normalize()
+        # Normalize covariate data with class function
+        if args.normalize:
+            self._normalize()
 
     def _normalize(self):
         '''Normalize X data (covariates) (transform values to range between 0 and 1)'''
