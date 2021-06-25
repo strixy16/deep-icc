@@ -1,0 +1,54 @@
+## Program Design planning for CT survival code
+
+#########################################################
+DATASET CLASS
+- Data table - pandas dataframe from the csv file
+- Image stuff
+    - path to BIN files
+    - image file name
+    - image dimension --> figure out how to read this in instead of hard coding
+- Labels
+    - combined time and event --> split into y and e in the __getitem__ class like SurvivalDataset does
+    - patient id for image
+    - slice id for image
+
+- Normalization
+- getitem class
+- image augmentation eventually?
+
+C-index function
+
+##########################################################
+MODEL CLASS
+- learning rate
+- dropout
+- activation
+- ResNet or vgg
+    - pretrained with imagenet for now
+    - later going to do self-supervised pretraining
+
+NegativeLogLikelihood function
+
+
+##########################################################
+MAIN CODE (training)
+
+Setting up data loading
+- file paths
+- removeSmallScans Travis code??
+
+split into train, validation, test (or just train/test) with patient_data_split.py
+
+Then use DataLoader
+
+set criterion as NegativeLogLikelihood
+set optimizer as Adam
+learning rate decay schedule?
+
+Training arguments
+- epochs
+- batch size (for DataLoader)
+- learning rate/weight decay???
+
+Training loop
+-
