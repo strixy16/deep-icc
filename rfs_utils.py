@@ -2,7 +2,7 @@
 # Environment: Python 3.9
 # Author: Katy Scott
 # Last updated: June 24, 2021
-# Main training file for RFS prediction model
+# Contains Dataset class and other functions used in training
 
 # TODO: C-index function
 # TODO: move patient_data_split here maybe?
