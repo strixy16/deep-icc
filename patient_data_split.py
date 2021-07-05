@@ -6,7 +6,7 @@
 import numpy as np
 
 
-def pat_train_test_split(pat_num, label, split_perc, seed = 16):
+def pat_train_test_split(pat_num, label, split_perc, seed=16):
     """
     Function to split data into training and testing, keeping slices from one patient in one class
     Args:
