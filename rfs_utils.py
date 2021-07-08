@@ -32,7 +32,7 @@ class CTSurvDataset(Dataset):
         self.patid = np.asarray(self.info['Pat ID'])
         self.slice = np.asarray(self.info['Slice Num'])
         self.event = np.asarray(self.info['RFS Code'])
-        self.time = np.asarray([self.info['RFS Time']])
+        self.time = np.asarray(self.info['RFS Time'])
 
         self.img_path = img_path
         self.dim = img_dim
@@ -47,7 +47,7 @@ class CTSurvDataset(Dataset):
         # Load in CT bin image as numpy array
         img = np.fromfile(self.img_path + self.fname[index])
         # Reshape to a 2D array
-        img_2D = np.reshape(img, (self.dim, self.dim))
+        img_2D = np.reshape(img, (1, self.dim, self.dim))
 
         X_tensor = torch.from_numpy(img_2D)
 
@@ -115,10 +115,10 @@ def save_error(train_ci, val_ci, coxLoss, variance, epoch, slname):
         # Create file for first epoch
         f = open(slname, 'w')
         f.write('epoch,coxLoss,stratLoss,trainCI,valCI,variance\n')
-        f.write('{},{:.4f},{:.4f},{:.4f},{:.4f},{}\n'.format(epoch, coxLoss, stratLoss, train_ci, val_ci, variance))
+        f.write('{},{:.4f},{:.4f},{:.4f},{}\n'.format(epoch, coxLoss, train_ci, val_ci, variance))
         f.close()
     else:
         f = open(slname, 'a')
-        f.write('{},{:.4f},{:.4f},{:.4f},{:.4f},{}\n'.format(epoch, coxLoss, stratLoss, train_ci, val_ci, variance))
+        f.write('{},{:.4f},{:.4f},{:.4f},{}\n'.format(epoch, coxLoss, train_ci, val_ci, variance))
         f.close()
 

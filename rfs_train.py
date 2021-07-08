@@ -30,7 +30,7 @@ def main():
     global args, device
 
     # Utilize GPUs for Tensor computations if available
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cpu")
 
     # Training variables
     args = parser.parse_args()
@@ -38,7 +38,7 @@ def main():
     ### Filepath Setup ###
 
     info_path = '/media/katy/Data/ICC/Data/Labels/RFS_all_tumors_zero.csv'
-    img_path = '/media/katy/Data/ICC/Data/Images/Tumors/' + str(args.imdim) + '/Zero'
+    img_path = '/media/katy/Data/ICC/Data/Images/Tumors/' + str(args.imdim) + '/Zero/'
     save_path = '/media/katy/Data/ICC/Data/Output/' + str(date.today()) + '/'
 
     # Make output folder for today
@@ -64,14 +64,14 @@ def main():
     train_dataset = CTSurvDataset(info, img_path, train_idx, args.imdim)
     val_dataset = CTSurvDataset(info, img_path, val_idx, args.imdim)
 
-    train_loader = DataLoader(train_dataset, batch_size=args.batchsize)
-    val_loader = DataLoader(val_dataset, batch_size=args.batchsize)
+    train_loader = DataLoader(train_dataset, shuffle=True, batch_size=args.batchsize)
+    val_loader = DataLoader(val_dataset, shuffle=True, batch_size=args.batchsize)
 
     # Now the model class stuff
     model = KT6Model().to(device)
 
     # Define loss function and optimizer
-    optimizer = torch.optim.Adam(model.parameters, lr=args.lr)
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     criterion = NegativeLogLikelihood(device)
 
     for epoch in range(0, args.epochs):
