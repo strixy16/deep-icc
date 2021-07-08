@@ -10,10 +10,12 @@ import json
 import os
 import pandas as pd
 import numpy as np
+import torch.optim
 from torch.utils.data import DataLoader
 
 from patient_data_split import *
 from rfs_utils import *
+from rfs_models import *
 
 parser = argparse.ArgumentParser(description='Training variables:')
 parser.add_argument('--batchsize', default=64, type=int, help='Number of samples used for each training cycle')
@@ -66,8 +68,48 @@ def main():
     val_loader = DataLoader(val_dataset, batch_size=args.batchsize)
 
     # Now the model class stuff
+    model = KT6Model().to(device)
 
-    print("Stop here")
+    # Define loss function and optimizer
+    optimizer = torch.optim.Adam(model.parameters, lr=args.lr)
+    criterion = NegativeLogLikelihood(device)
+
+    for epoch in range(0, args.epochs):
+        # Initialize value holders for loss, c-index, and var values
+        coxLossMeter = AverageMeter()
+        ciMeter = AverageMeter()
+        varMeter = AverageMeter()
+
+        # TRAINING
+        model.train()
+        for X, y, e in train_loader:
+            risk_pred = model(X.float().to(device))
+            # Calculate loss
+            cox_loss = criterion(-risk_pred, y.to(device), e.to(device), model)
+            train_loss = cox_loss
+
+            optimizer.zero_grad()
+            train_loss.backward()
+            optimizer.step()
+            coxLossMeter.update(cox_loss.item(), y.size(0))
+            varMeter.update(risk_pred.var(), y.size(0))
+            train_c = c_index(risk_pred, y, e)
+            ciMeter.update(train_c.item(), y.size(0))
+
+        # VALIDATION
+        model.eval()
+        ciValMeter = AverageMeter()
+        for val_X, val_y, val_e in val_loader:
+            val_riskpred = model(val_X.float().to(device))
+            val_c = c_index(val_riskpred, val_y, val_e)
+            ciValMeter.update(val_c.item(), val_y.size(0))
+
+
+        print('Epoch: {} \t Train Loss: {:.4f} \t Train CI: {:.3f} \t Val CI: {:.3f}'.format(epoch, train_loss, train_c, val_c))
+        # output average results for this epoch
+        save_error(ciMeter.avg, ciValMeter.avg, coxLossMeter.avg, varMeter.avg, epoch,
+                   os.path.join(save_path, 'convergence.csv'))
+
 
 if __name__ == '__main__':
     main()
