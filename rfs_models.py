@@ -4,10 +4,12 @@
 # Last updated: July 5, 2021
 # Contains main model class and other related functions for training
 
+import torch
 import torch.nn as nn
 
 
 class KT6Model(nn.Module):
+    """ KT6Model - CNN developed in CISC867 course"""
 
     def __init__(self):
         super(KT6Model, self).__init__()
@@ -54,5 +56,64 @@ class KT6Model(nn.Module):
         return out
 
 
-model = KT6Model()
-model
+class NegativeLogLikelihood(nn.Module):
+    """Negative log likelihood loss function from Katzman et al. (2018) DeepSurv model (equation 4)"""
+
+    def __init__(self, device):
+        """Initialize NegativeLogLikelihood class
+
+        Args:
+            device: string, what kind of tensor to use for loss calculation
+        """
+        super(NegativeLogLikelihood, self).__init__()
+        self.reg = Regularization(order=2, weight_decay=0)
+        self.device = device
+
+    def forward(self, risk_pred, y, e, model):
+        """Calculate loss
+
+        Args:
+            risk_pred: torch.Tensor, risk prediction output from network
+            y: torch.Tensor,
+            e: torch.Tensor,
+            model: nn.Module model,
+        """
+        # Think this is getting set of patients still at risk of failure at time t???
+        mask = torch.ones(y.shape[0], y.shape[0], device=self.device)
+        mask[(y.T - y) > 0] = 0
+        log_loss = torch.exp(risk_pred) * mask
+        log_loss = torch.sum(log_loss, dim=0) / torch.sum(mask, dim=0)
+        log_loss = torch.log(log_loss).reshape(-1, 1)
+        neg_log_loss = -torch.sum((risk_pred - log_loss) * e) / torch.sum(e)
+        l2_loss = self.reg(model)
+        return neg_log_loss + l2_loss
+
+
+class Regularization(object):
+    def __init__(self, order, weight_decay):
+        """Initialize Regularization class
+
+        Args:
+            order: int, norm order number
+            weight_decay: float, weight decay rate
+        """
+        super(Regularization, self).__init__()
+        self.order = order
+        self.weight_decay = weight_decay
+
+    def __call__(self, model):
+        """Calculates regularization(self.order) loss for model
+
+        Args:
+            model: torch.nn Module object
+
+        Returns:
+            reg_loss: torch.Tensor, regularization loss
+        """
+        reg_loss = 0
+        # Getting weight and bias parameters from model
+        for name, w in model.named_parameters():
+            if 'weight' in name:
+                reg_loss = reg_loss + torch.norm(w, p=self.order)
+        reg_loss = self.weight_decay * reg_loss
+        return reg_loss
