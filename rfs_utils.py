@@ -8,7 +8,10 @@
 # TODO: move patient_data_split here maybe?
 
 from lifelines.utils import concordance_index
+import matplotlib.pyplot as plt
 import numpy as np
+import os
+import pandas as pd
 import torch
 from torch.utils.data import Dataset
 
@@ -109,12 +112,12 @@ def save_error(train_ci, val_ci, coxLoss, variance, epoch, slname):
             coxLoss: , training loss, negative log likelihood
             variance:
             epoch: int, epoch these stats are from
-            slname: string, filename
+            slname: string, filename (sl = save location)
     """
     if epoch == 0:
         # Create file for first epoch
         f = open(slname, 'w')
-        f.write('epoch,coxLoss,stratLoss,trainCI,valCI,variance\n')
+        f.write('epoch,coxLoss,trainCI,valCI,variance\n')
         f.write('{},{:.4f},{:.4f},{:.4f},{}\n'.format(epoch, coxLoss, train_ci, val_ci, variance))
         f.close()
     else:
@@ -122,3 +125,53 @@ def save_error(train_ci, val_ci, coxLoss, variance, epoch, slname):
         f.write('{},{:.4f},{:.4f},{:.4f},{}\n'.format(epoch, coxLoss, train_ci, val_ci, variance))
         f.close()
 
+
+def saveplot_coxloss(filename, model_name):
+    """
+    Function to save a plot of loss over model training.
+
+    Args:
+        filename: string, path and name of file that was output during training
+        model_name: string, name of model for title of plots
+    """
+
+    evaluation_df = pd.read_csv(filename)
+
+    fig = plt.figure()
+    axLoss = plt.subplot(111)
+    axLoss.plot(evaluation_df['epoch'], evaluation_df['coxLoss'], label='Training')
+    plt.title("Training Loss - " + model_name)
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    axLoss.legend()
+
+    out_path = os.path.dirname(filename)
+    out_file = os.path.join(out_path, 'loss.png')
+
+    plt.savefig(out_file)
+
+
+def saveplot_concordance(filename, model_name):
+    """
+    Function to plot concordance index for training and validation of model training.
+
+    Args:
+        filename: string, path and name of file that was output during training
+        model_name: string, name of model for title of plots
+    """
+
+    evaluation_df = pd.read_csv(filename)
+
+    fig = plt.figure()
+    axCI = plt.subplot(111)
+    axCI.plot(evaluation_df['epoch'], evaluation_df['trainCI'], label="Training")
+    axCI.plot(evaluation_df['epoch'], evaluation_df['valCI'], label="Validation")
+    plt.title("Concordance Index - " + model_name)
+    plt.xlabel("Epoch")
+    plt.ylabel("C-index")
+    axCI.legend()
+
+    out_path = os.path.dirname(filename)
+    out_file = os.path.join(out_path, 'c_index.png')
+
+    plt.savefig(out_file)
