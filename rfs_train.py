@@ -24,6 +24,9 @@ parser.add_argument('--imdim', default=256, type=int, help='Dimension of image t
 parser.add_argument('--lr', default=1e-3, type=float, help='Starting learning rate for training')
 parser.add_argument('--randseed', default=16, type=int, help='Random seed for reproducibility')
 parser.add_argument('--split', default=0.8, type=float, help='Fraction of data to use for training (ex. 0.8)')
+# TODO: change this to False once testing is done
+parser.add_argument('--plots', default=True, type=bool,
+                    help='Save plots of evaluation values over model training')
 
 
 def main():
@@ -46,9 +49,12 @@ def main():
         os.makedirs(save_path)
 
     # Saving out parameters for the run
-    save_param_fname = save_path + 'parameters.txt'
+    save_param_fname = os.path.join(save_path, 'parameters.txt')
     with open(save_param_fname, 'w') as f:
         json.dump(args.__dict__, f, indent=2)
+
+    # Setting up file to save out evaluation values to/load them from
+    save_eval_fname = os.path.join(save_path, 'convergence.csv')
 
     ### Data Loading ###
     info = pd.read_csv(info_path)
@@ -104,12 +110,17 @@ def main():
             val_c = c_index(val_riskpred, val_y, val_e)
             ciValMeter.update(val_c.item(), val_y.size(0))
 
-
         print('Epoch: {} \t Train Loss: {:.4f} \t Train CI: {:.3f} \t Val CI: {:.3f}'.format(epoch, train_loss, train_c, val_c))
         # output average results for this epoch
         save_error(ciMeter.avg, ciValMeter.avg, coxLossMeter.avg, varMeter.avg, epoch,
-                   os.path.join(save_path, 'convergence.csv'))
+                   save_eval_fname)
 
 
 if __name__ == '__main__':
+    convergence = "../Data/Output/2021-07-08/convergence.csv"
+    model_name = "KT6"
+
+    saveplot_coxloss(convergence, model_name)
+    saveplot_concordance(convergence, model_name)
+
     main()
