@@ -19,7 +19,7 @@ from rfs_models import *
 
 parser = argparse.ArgumentParser(description='Training variables:')
 parser.add_argument('--batchsize', default=64, type=int, help='Number of samples used for each training cycle')
-parser.add_argument('--epochs', default=500, type=int, help='Number of training epochs to run')
+parser.add_argument('--epochs', default=10, type=int, help='Number of training epochs to run')
 parser.add_argument('--imdim', default=256, type=int, help='Dimension of image to load')
 parser.add_argument('--lr', default=1e-3, type=float, help='Starting learning rate for training')
 parser.add_argument('--randseed', default=16, type=int, help='Random seed for reproducibility')
@@ -115,12 +115,16 @@ def main():
         save_error(ciMeter.avg, ciValMeter.avg, coxLossMeter.avg, varMeter.avg, epoch,
                    save_eval_fname)
 
+    if args.plots:
+        saveplot_coxloss(save_eval_fname, model._get_name())
+        saveplot_concordance(save_eval_fname, model._get_name())
+
 
 if __name__ == '__main__':
-    convergence = "../Data/Output/2021-07-08/convergence.csv"
-    model_name = "KT6"
-
-    saveplot_coxloss(convergence, model_name)
-    saveplot_concordance(convergence, model_name)
+    # convergence = "../Data/Output/2021-07-08/convergence.csv"
+    # model_name = "KT6"
+    #
+    # saveplot_coxloss(convergence, model_name)
+    # saveplot_concordance(convergence, model_name)
 
     main()
