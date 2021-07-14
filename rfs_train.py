@@ -39,9 +39,9 @@ def main():
     args = parser.parse_args()
 
     ### Filepath Setup ###
-
-    info_path = '/media/katy/Data/ICC/Data/Labels/RFS_all_tumors_zero.csv'
-    img_path = '/media/katy/Data/ICC/Data/Images/Tumors/' + str(args.imdim) + '/Zero/'
+    info_path = '/media/katy/Data/ICC/Data/Labels/' + str(args.imdim) + '/RFS_all_tumors_zero.csv'
+    z_img_path = '/media/katy/Data/ICC/Data/Images/Tumors/' + str(args.imdim) + '/Zero/'
+    n_img_path = '/media/katy/Data/ICC/Data/Images/Tumors/' + str(args.imdim) + '/NaN/'
     save_path = '/media/katy/Data/ICC/Data/Output/' + str(date.today()) + '/'
 
     # Make output folder for today
@@ -61,14 +61,16 @@ def main():
     patnum = np.asarray(info['Pat ID'])
     event = np.asarray(info['RFS Code'])
 
-    # TODO: removeSmallScans would go here or before train-val split
+    # TODO: make thresh an input argument, remove hardcoded value
+    # use NaN images for removeSmallScans
+    removeSmallScans(info, n_img_path, args.imdim, 300)
 
     # Split data into train and validation sets
     train_idx, val_idx = pat_train_test_split(patnum, event, args.split, args.randseed)
 
     # Set up data with custom Dataset class (in rfs_utils)
-    train_dataset = CTSurvDataset(info, img_path, train_idx, args.imdim)
-    val_dataset = CTSurvDataset(info, img_path, val_idx, args.imdim)
+    train_dataset = CTSurvDataset(info, z_img_path, train_idx, args.imdim)
+    val_dataset = CTSurvDataset(info, z_img_path, val_idx, args.imdim)
 
     train_loader = DataLoader(train_dataset, shuffle=True, batch_size=args.batchsize)
     val_loader = DataLoader(val_dataset, shuffle=True, batch_size=args.batchsize)
