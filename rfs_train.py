@@ -13,7 +13,7 @@ import numpy as np
 import torch.optim
 from torch.utils.data import DataLoader
 
-from patient_data_split import *
+from rfs_preprocessing import *
 from rfs_utils import *
 from rfs_models import *
 
@@ -61,10 +61,10 @@ def main():
     patnum = np.asarray(info['Pat ID'])
     event = np.asarray(info['RFS Code'])
 
+    # TODO: removeSmallScans would go here or before train-val split
+
     # Split data into train and validation sets
     train_idx, val_idx = pat_train_test_split(patnum, event, args.split, args.randseed)
-
-    # TODO: removeSmallScans would go here or before train-val split
 
     # Set up data with custom Dataset class (in rfs_utils)
     train_dataset = CTSurvDataset(info, img_path, train_idx, args.imdim)
@@ -121,10 +121,4 @@ def main():
 
 
 if __name__ == '__main__':
-    # convergence = "../Data/Output/2021-07-08/convergence.csv"
-    # model_name = "KT6"
-    #
-    # saveplot_coxloss(convergence, model_name)
-    # saveplot_concordance(convergence, model_name)
-
     main()
