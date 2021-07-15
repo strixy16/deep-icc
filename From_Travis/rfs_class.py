@@ -17,15 +17,25 @@ import os
 import fnmatch
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+# Travis file paths
 # save_path = '/lila/data/gonen/travis/projects/cholangio/Data/'
-save_path = '/Users/katyscott/Documents/ICC/Data/'
 # lib_path = save_path + 'chol_surv_files.csv'
-lib_path = save_path + 'Labels/RFS_all_tumors_NaN.csv'
 # data_path = '/lila/data/gonen/travis/projects/cholangio/Binary_files/NaN/'
-data_path = '/Users/katyscott/Documents/ICC/Data/Images/Tumors/NaN/'
 # looks like the path to wherever you want to save your output. Worry about this later
 # rfs_path = '/lila/data/gonen/travis/projects/cholangio/recurrence/Results/'
+
+# Katy Mac file paths
+save_path = '/Users/katyscott/Documents/ICC/Data/'
+lib_path = save_path + 'Labels/' + str(256) + 'RFS_all_tumors_NaN.csv'
+data_path = '/Users/katyscott/Documents/ICC/Data/Images/Tumors/' + str(256) + '/NaN/'
 rfs_path = '/Users/katyscott/Documents/ICC/Data/Results/'
+
+# Katy Linux file paths
+save_path = '/media/katy/Data/ICC/Data/'
+lib_path = save_path + 'Labels/' + str(256) + '/RFS_all_tumours_NaN.csv'
+data_path = save_path + 'Images/Tumours/' + str(256) + '/NaN/'
+rfs_path = save_path + 'Output'
 
 nz_pix_limit = 300  # nz is number of zeros, setting limit for number of pixels in tumour in image
 batch_size = 60
