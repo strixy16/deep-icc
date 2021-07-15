@@ -124,23 +124,32 @@ def removeSmallScans(csv_path, file_path, thresh):
     o_idx = list(range(len(image)))
     for i in o_idx:
         name = image[i]
+        # Load in image
         img = np.fromfile(file_path + str(name))
         img = np.reshape(img, (299, 299), order='F') # shouldn't hard code this
         # img = cropND(img, (260, 260))
+        # Convert all background NaNs to zeros
         img[np.isnan(img)] = 0
         img = resize(img, (224, 224), anti_aliasing=True, mode='reflect')
+        # Make any non-background pixels =1 (image is binary float)
         tmp = (img != 0).astype(float)
+        # Fill in any holes in the tumour section of the image
         tmp = ndimage.binary_fill_holes(tmp).astype(float)
+        # Convert background back to NaNs
         tmp[tmp == 0] = np.nan
         img = img * tmp
+        # Convert binary image from float to int
         img = binaryImage(img)
         # img = cv.convertScaleAbs(img)
         # contours, hierarchy = cv.findContours(img, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
         # contour_area = cv.contourArea(np.float32(contours))
         # area = contour_area
+        # Count how many pixels the tumour is
         area = np.count_nonzero(img)
+        # Store this count for filtering step after loop
         nz[i] = area
         # print(area)
+    
     r_idx = np.asarray(np.where((nz<thresh))).squeeze()
     n_idx = np.delete(o_idx, r_idx)
     print(len(r_idx))
