@@ -77,7 +77,7 @@ def main():
     val_dataset = CTSurvDataset(filtered_info, z_img_path, val_idx, args.imdim)
 
     train_loader = DataLoader(train_dataset, shuffle=True, batch_size=args.batchsize)
-    val_loader = DataLoader(val_dataset, shuffle=True, batch_size=args.batchsize)
+    val_loader = DataLoader(val_dataset, shuffle=True, batch_size=args.batchsize, drop_last=True)
 
     # Now the model class stuff
     model = KT6Model().to(device)
