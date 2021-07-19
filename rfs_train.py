@@ -24,6 +24,8 @@ parser.add_argument('--imdim', default=256, type=int, help='Dimension of image t
 parser.add_argument('--lr', default=1e-3, type=float, help='Starting learning rate for training')
 parser.add_argument('--randseed', default=16, type=int, help='Random seed for reproducibility')
 parser.add_argument('--split', default=0.8, type=float, help='Fraction of data to use for training (ex. 0.8)')
+parser.add_argument('--scanthresh', default=300, type=int, help='Threshold for number of tumour pixels to filter images through')
+
 # TODO: change this to False once testing is done
 parser.add_argument('--plots', default=True, type=bool,
                     help='Save plots of evaluation values over model training')
@@ -58,19 +60,21 @@ def main():
 
     ### Data Loading ###
     info = pd.read_csv(info_path)
-    patnum = np.asarray(info['Pat ID'])
-    event = np.asarray(info['RFS Code'])
 
-    # TODO: make thresh an input argument, remove hardcoded value
-    # use NaN images for removeSmallScans
-    removeSmallScans(info, n_img_path, args.imdim, 300)
+    # Filter scans with mostly background in the image
+    filtered_indices = removeSmallScans(info, z_img_path, args.imdim, args.scanthresh)
+
+    filtered_info = info.iloc[filtered_indices]
+
+    patnum = np.asarray(filtered_info['Pat ID'])
+    event = np.asarray(filtered_info['RFS Code'])
 
     # Split data into train and validation sets
     train_idx, val_idx = pat_train_test_split(patnum, event, args.split, args.randseed)
 
     # Set up data with custom Dataset class (in rfs_utils)
-    train_dataset = CTSurvDataset(info, z_img_path, train_idx, args.imdim)
-    val_dataset = CTSurvDataset(info, z_img_path, val_idx, args.imdim)
+    train_dataset = CTSurvDataset(filtered_info, z_img_path, train_idx, args.imdim)
+    val_dataset = CTSurvDataset(filtered_info, z_img_path, val_idx, args.imdim)
 
     train_loader = DataLoader(train_dataset, shuffle=True, batch_size=args.batchsize)
     val_loader = DataLoader(val_dataset, shuffle=True, batch_size=args.batchsize)

@@ -154,7 +154,7 @@ def removeSmallScans(info, img_path, img_dim, thresh):
     Args:
             info: pandas.Dataframe, read from CSV, contains image file names, patient ID, slice ID, and RFS time and event labels
                 Column titles should be: File, Pat ID, Slice Num, RFS Code, RFS Time
-            img_path: string, path to folder containing image files listed in info **with NaN backgrounds**
+            img_path: string, path to folder containing image files listed in info
             img_dim: int, dimension of images
             thresh: int, amount of image that needs to be tumour pixels to be kept in
 
@@ -163,39 +163,30 @@ def removeSmallScans(info, img_path, img_dim, thresh):
     fnames = np.asarray(info['File'])
     # Initialize array to store the non-zero area of each image
     non_zeros = np.zeros(len(fnames))
+    # original index list
     o_idx = list(range(len(fnames)))
 
     for idx, name in enumerate(fnames):
         img = np.fromfile(img_path + str(name))
         img = np.reshape(img, (img_dim, img_dim))
 
-        # Changes all NaNs to zeros (so do you need the NaN background??)
-        img[np.isnan(img)] = 0
-
         # Making a mask for the tumour vs. background??
         # Makes any non-background pixels = 1 (image is now binary)
-        tmp = (img != 0).astype(float)
+        binImg = (img != 0).astype(float)
         # Fill in any holes that are within the tumour
-        tmp = ndimage.binary_fill_holes(tmp).astype(float)
-        # Convert the background back to NaN
-        tmp[tmp == 0] = np.nan
-        img = img * tmp
-
-        binImg = (~np.isnan(img)).astype(int)
-        binImg = ndimage.binary_fill_holes(binImg).astype(int)
+        binImg = ndimage.binary_fill_holes(binImg).astype(float)
 
         area = np.count_nonzero(binImg)
         non_zeros[idx] = area
-        print(area)
+        # print(area)
 
-    r_idx = np.asarray(np.where((non_zeros<thresh))).squeeze()
+    # Indices to remove that have a total area of interest below the threshold
+    r_idx = np.asarray(np.where((non_zeros < thresh))).squeeze()
+    # New indices
     n_idx = np.delete(o_idx, r_idx)
-    print(len(r_idx))
+    # print(len(r_idx))
 
     return n_idx
-
-
-        # TODO: need the NaN images for this part to work, need to change that in rfs_train
 
 
 
