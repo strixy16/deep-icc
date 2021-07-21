@@ -5,7 +5,7 @@
 # Main training file for RFS prediction model
 
 import argparse
-from datetime import date
+from datetime import datetime
 import json
 import os
 import pandas as pd
@@ -22,11 +22,10 @@ parser.add_argument('--batchsize', default=64, type=int, help='Number of samples
 parser.add_argument('--epochs', default=10, type=int, help='Number of training epochs to run')
 parser.add_argument('--imdim', default=256, type=int, help='Dimension of image to load')
 parser.add_argument('--lr', default=1e-3, type=float, help='Starting learning rate for training')
+parser.add_argument('--modelname', default='DeepConvSurv', type=str, help='Name of model type to build and train. Current options are KT6Model and DeepConvSurv')
 parser.add_argument('--randseed', default=16, type=int, help='Random seed for reproducibility')
 parser.add_argument('--split', default=0.8, type=float, help='Fraction of data to use for training (ex. 0.8)')
 parser.add_argument('--scanthresh', default=300, type=int, help='Threshold for number of tumour pixels to filter images through')
-
-# TODO: change this to False once testing is done
 parser.add_argument('--plots', default=True, type=bool,
                     help='Save plots of evaluation values over model training')
 
@@ -44,7 +43,7 @@ def main():
     info_path = '/media/katy/Data/ICC/Data/Labels/' + str(args.imdim) + '/RFS_all_tumors_zero.csv'
     z_img_path = '/media/katy/Data/ICC/Data/Images/Tumors/' + str(args.imdim) + '/Zero/'
     n_img_path = '/media/katy/Data/ICC/Data/Images/Tumors/' + str(args.imdim) + '/NaN/'
-    save_path = '/media/katy/Data/ICC/Data/Output/' + str(date.today()) + '/'
+    save_path = '/media/katy/Data/ICC/Data/Output/' + str(args.modelname) + "-" + datetime.now().strftime("%Y-%m-%d-%H%M") + '/'
 
     # Make output folder for today
     if not os.path.exists(save_path):
@@ -71,6 +70,8 @@ def main():
 
     # Split data into train and validation sets
     train_idx, val_idx = pat_train_test_split(patnum, event, args.split, args.randseed)
+    # pat_kfold_split(patnum, event, folds=5, seed=args.randseed)
+
 
     # Set up data with custom Dataset class (in rfs_utils)
     train_dataset = CTSurvDataset(filtered_info, z_img_path, train_idx, args.imdim)
@@ -80,13 +81,28 @@ def main():
     val_loader = DataLoader(val_dataset, shuffle=True, batch_size=args.batchsize, drop_last=True)
 
     # Now the model class stuff
-    model = KT6Model().to(device)
+    model = DeepConvSurv().to(device)
 
     # Define loss function and optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     criterion = NegativeLogLikelihood(device)
 
-    for epoch in range(0, args.epochs):
+    train(model, args.epochs, optimizer, criterion, train_loader, val_loader, save_eval_fname, args.plots)
+
+
+def train(model, epochs, optimizer, criterion, train_loader, val_loader, save_eval_fname, plots=True):
+    """
+    Function to train a given neural network model
+
+    Args:
+         model - nn.Module, model to train
+         epochs - int, number of epochs to train model for
+         optimizer - torch.optim object, optimizer to use in model training
+         criterion - , loss function to use in optimization
+         save_eval_fname - string, filename + path to save training results
+         plots - bool, whether to save out loss and c-index plots over training
+    """
+    for epoch in range(0, epochs):
         # Initialize value holders for loss, c-index, and var values
         coxLossMeter = AverageMeter()
         ciMeter = AverageMeter()
@@ -121,7 +137,7 @@ def main():
         save_error(ciMeter.avg, ciValMeter.avg, coxLossMeter.avg, varMeter.avg, epoch,
                    save_eval_fname)
 
-    if args.plots:
+    if plots:
         saveplot_coxloss(save_eval_fname, model._get_name())
         saveplot_concordance(save_eval_fname, model._get_name())
 
