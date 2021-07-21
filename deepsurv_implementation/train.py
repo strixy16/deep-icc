@@ -40,7 +40,7 @@ def main():
 
     ## DATA LOADING AND SETUP
     # Load and setup cholangio genetic data
-    genomic_file = "../Data/MSK_Genomic_Data.csv"
+    genomic_file = "/media/katy/Data/ICC/Data/MSK_Genomic_Data.csv"
 
     gene_features = pd.read_csv(genomic_file)
     # Patient IDs have a space at the end of the name
@@ -51,7 +51,7 @@ def main():
     # Get number of covariates = number of genetic columns
     args.covariates = gene_features.shape[1] - 1
 
-    labels_file = "../Data/RFS_Scout.xlsx"
+    labels_file = "/media/katy/Data/ICC/Data/RFS_Scout.xlsx"
 
     rfs_labels = pd.read_excel(labels_file)
     rfs_labels = rfs_labels[['ScoutID', 'RFS', 'RFS_Code']]
