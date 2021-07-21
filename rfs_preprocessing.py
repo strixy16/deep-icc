@@ -4,12 +4,10 @@
 # Last updated: February 28, 2021
 # Data preprocessing and loading functions
 
-from lifelines.utils import concordance_index
-import matplotlib.pyplot as plt
+
 import numpy as np
-import os
-import pandas as pd
 from scipy import ndimage
+from sklearn.model_selection import KFold
 import torch
 from torch.utils.data import Dataset
 
@@ -30,10 +28,10 @@ class CTSurvDataset(Dataset):
 
         self.info = info.iloc[idx, :]
         self.fname = np.asarray(self.info['File'])
-        self.patid = np.asarray(self.info['Pat ID'])
-        self.slice = np.asarray(self.info['Slice Num'])
-        self.event = np.asarray(self.info['RFS Code'])
-        self.time = np.asarray(self.info['RFS Time'])
+        self.patid = np.asarray(self.info['Pat_ID'])
+        self.slice = np.asarray(self.info['Slice_Num'])
+        self.event = np.asarray(self.info['RFS_Code'])
+        self.time = np.asarray(self.info['RFS_Time'])
 
         self.img_path = img_path
         self.dim = img_dim
@@ -64,7 +62,7 @@ def pat_train_test_split(pat_num, label, split_perc, seed=16):
     Args:
         pat_num - numpy array of patient numbers or ids to be split
         label - numpy array of binary labels for the data, indicating recurrence or non-recurrence (censoring)
-        split_perc - float value < 1, percentage of data to put in training set, 1 - split_perc will be the testing size
+        split_perc - float value, between 0 and 1, percentage of data to put in training set, 1 - split_perc will be the testing size
         seed - seed for patient index shuffling
     Returns:
         sets - tuple of training and testing slice indices in a list
@@ -145,6 +143,50 @@ def pat_train_test_split(pat_num, label, split_perc, seed=16):
     # Tuple of indices for training and testing slices
     sets = (train_slice, test_slice)
     return sets
+
+
+def pat_kfold_split(pat_num, label, folds=5, seed=16):
+    """
+    Function to split data into k-folds for cross-validation
+
+    Args:
+        pat_num - numpy array of patient numbers or ids to be split
+        label - numpy array of binary labels for the data, indicating recurrence or non-recurrence (censoring)
+        folds - number of folds to create
+        seed - seed for patient index shuffling
+    Returns:
+
+    """
+
+    # Separate out positive and negative labels to evenly distribute them between classes
+    # Get index of slices with 0 and 1 label
+    # z => zero, o => one
+    z_idx = np.asarray(np.where(label == 0)).squeeze()
+    o_idx = np.asarray(np.where(label == 1)).squeeze()
+
+    # Get patient ids of 0 and 1 labels
+    z_pats = pat_num[z_idx]
+    o_pats = pat_num[o_idx]
+
+    # Remove repeat patient ids (repeats are there because pat_nums has number for every slice)
+    # u => unique
+    uz_pats = np.unique(z_pats)
+    uo_pats = np.unique(o_pats)
+
+    np.random.seed(seed)
+    # Shuffle patient index for splitting
+    np.random.shuffle(uz_pats)
+    np.random.shuffle(uo_pats)
+
+    kf = KFold(n_splits=folds)
+
+    train_z_pat = kf.split(uz_pats)
+    (train_o_pat, test_o_pat) = kf.split(uo_pats)
+
+    # for train_index, test_index in kf.split(uz_pats)
+    #   make the fold sets now
+
+    print("stop here")
 
 
 def removeSmallScans(info, img_path, img_dim, thresh):
