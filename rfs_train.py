@@ -7,9 +7,7 @@
 import argparse
 from datetime import datetime
 import json
-import os
-import pandas as pd
-import numpy as np
+from sklearn.model_selection import KFold
 import torch.optim
 from torch.utils.data import DataLoader
 
@@ -26,6 +24,8 @@ parser.add_argument('--modelname', default='DeepConvSurv', type=str, help='Name 
 parser.add_argument('--randseed', default=16, type=int, help='Random seed for reproducibility')
 parser.add_argument('--split', default=0.8, type=float, help='Fraction of data to use for training (ex. 0.8)')
 parser.add_argument('--scanthresh', default=300, type=int, help='Threshold for number of tumour pixels to filter images through')
+parser.add_argument('--validation', default=1, type=int, help='Select validation method from list: 0: hold out, 1: k-fold')
+parser.add_argument('--kfold_num', default=5, type=int, help='If using k-fold cross validation, supply k value')
 parser.add_argument('--plots', default=True, type=bool,
                     help='Save plots of evaluation values over model training')
 
@@ -62,32 +62,78 @@ def main():
 
     # Filter scans with mostly background in the image
     filtered_indices = removeSmallScans(info, z_img_path, args.imdim, args.scanthresh)
-
     filtered_info = info.iloc[filtered_indices]
 
-    patnum = np.asarray(filtered_info['Pat ID'])
-    event = np.asarray(filtered_info['RFS Code'])
+    patnum = np.asarray(filtered_info['Pat_ID'])
+    event = np.asarray(filtered_info['RFS_Code'])
 
-    # Split data into train and validation sets
-    train_idx, val_idx = pat_train_test_split(patnum, event, args.split, args.randseed)
-    # pat_kfold_split(patnum, event, folds=5, seed=args.randseed)
-
-
-    # Set up data with custom Dataset class (in rfs_utils)
-    train_dataset = CTSurvDataset(filtered_info, z_img_path, train_idx, args.imdim)
-    val_dataset = CTSurvDataset(filtered_info, z_img_path, val_idx, args.imdim)
-
-    train_loader = DataLoader(train_dataset, shuffle=True, batch_size=args.batchsize)
-    val_loader = DataLoader(val_dataset, shuffle=True, batch_size=args.batchsize, drop_last=True)
-
-    # Now the model class stuff
+    ### Model creation ###
     model = DeepConvSurv().to(device)
-
     # Define loss function and optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     criterion = NegativeLogLikelihood(device)
 
-    train(model, args.epochs, optimizer, criterion, train_loader, val_loader, save_eval_fname, args.plots)
+    ### Setup data based on validation type ###
+    # Hold-out validation
+    if args.validation == 0:
+        # Split data into train and validation sets
+        train_idx, val_idx = pat_train_test_split(patnum, event, args.split, args.randseed)
+
+        # Set up data with custom Dataset class (in rfs_utils)
+        train_dataset = CTSurvDataset(filtered_info, z_img_path, train_idx, args.imdim)
+        val_dataset = CTSurvDataset(filtered_info, z_img_path, val_idx, args.imdim)
+
+        train_loader = DataLoader(train_dataset, shuffle=True, batch_size=args.batchsize)
+        val_loader = DataLoader(val_dataset, shuffle=True, batch_size=args.batchsize, drop_last=True)
+
+        train(model, args.epochs, optimizer, criterion, train_loader, val_loader, save_eval_fname, args.plots)
+
+    # K-fold cross validation
+    elif args.validation == 1:
+        kf = KFold(n_splits=args.kfold_num)
+
+        # Get unique patient numbers
+        u_pats = np.unique(patnum)
+
+        for fold, (train_patidx, val_patidx) in enumerate(kf.split(u_pats)):
+            print(f'FOLD {fold}')
+            print('-------------------------------------')
+
+            model.apply(reset_weights)
+
+            # Get patient numbers from idx values for this fold
+            train_pats = u_pats[train_patidx]
+            val_pats = u_pats[val_patidx]
+
+            # Get full info for the train and validation cohorts
+            train_info = filtered_info.query('Pat_ID in @train_pats')
+            val_info = filtered_info.query('Pat_ID in @val_pats')
+
+            train_dataset = CTSurvDataset(train_info, z_img_path, len(train_info), args.imdim)
+            val_dataset = CTSurvDataset(val_info, z_img_path, len(val_info), args.imdim)
+
+            train_loader = DataLoader(train_dataset, shuffle=True, batch_size=args.batchsize)
+            val_loader = DataLoader(val_dataset, shuffle=True, batch_size=args.batchsize, drop_last=True)
+
+            train(model, args.epochs, optimizer, criterion, train_loader, val_loader, save_eval_fname, args.plots)
+
+            # TODO: figure out how the saving is gonna work for k-folds (5 versions of the training plots?)
+
+    else:
+        print("Invalid validation method selected.")
+        return -1
+
+    # # Split data into train and validation sets
+    # train_idx, val_idx = pat_train_test_split(patnum, event, args.split, args.randseed)
+    #
+    # # Set up data with custom Dataset class (in rfs_utils)
+    # train_dataset = CTSurvDataset(filtered_info, z_img_path, train_idx, args.imdim)
+    # val_dataset = CTSurvDataset(filtered_info, z_img_path, val_idx, args.imdim)
+    #
+    # train_loader = DataLoader(train_dataset, shuffle=True, batch_size=args.batchsize)
+    # val_loader = DataLoader(val_dataset, shuffle=True, batch_size=args.batchsize, drop_last=True)
+
+    # train(model, args.epochs, optimizer, criterion, train_loader, val_loader, save_eval_fname, args.plots)
 
 
 def train(model, epochs, optimizer, criterion, train_loader, val_loader, save_eval_fname, plots=True):
