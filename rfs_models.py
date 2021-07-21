@@ -56,6 +56,54 @@ class KT6Model(nn.Module):
         return out
 
 
+class DeepConvSurv(nn.Module):
+    """
+    DeepConvSurv model - from Zhu, Yao, and Huang
+    “Deep convolutional neural network for survival analysiswith pathological images”. In:2016 IEEE International
+    Conference on Bioinformatics andBiomedicine (BIBM). 2016, pp. 544–547.DOI:10.1109/BIBM.2016.7822579.7
+
+    Code adapted from: https://github.com/vanAmsterdam/deep-survival/blob/master/DeepConvSurv.py
+    """
+
+    def __init__(self):
+        super(DeepConvSurv, self).__init__()
+        # L1 ImgIn shape=(?, 1, 256, 256)
+        # Conv -> (?, 32, 84, 84)
+        # Pool -> (?, 32, 42, 42)
+        self.layer1 = nn.Sequential(
+            nn.Conv2d(1, 32, kernel_size=7, stride=3),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+        )
+        # L2 ImgIn shape = (?, 32, 42, 42)
+        # Conv -> (?, 32, 19, 19)
+        # Conv -> (?, 32, 9, 9)
+        # Pool -> (?, 32, 4, 4)
+        self.layer2 = nn.Sequential(
+            nn.Conv2d(32, 32, kernel_size=5, stride=2),
+            nn.ReLU(),
+            nn.Conv2d(32, 32, kernel_size=3, stride=2),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+        )
+        # L3 FC 32x4x4 inputs -> 32 outputs
+        self.layer3 = nn.Sequential(
+            nn.Linear(32 * 4 * 4, 32),
+            nn.ReLU()
+        )
+
+        # L4 final FC 32 inputs -> 1 output
+        self.layer4 = nn.Linear(32, 1)
+
+    def forward(self, x):
+        out = self.layer1(x)
+        out = self.layer2(out)
+        out = out.view(out.size(0), -1)  # Flatten for FC
+        out = self.layer3(out)
+        out = self.layer4(out)
+        return out
+
+
 class NegativeLogLikelihood(nn.Module):
     """Negative log likelihood loss function from Katzman et al. (2018) DeepSurv model (equation 4)"""
 
@@ -117,3 +165,18 @@ class Regularization(object):
                 reg_loss = reg_loss + torch.norm(w, p=self.order)
         reg_loss = self.weight_decay * reg_loss
         return reg_loss
+
+
+def reset_weights(model):
+    """
+    Resetting model weights to avoid weight leakage during cross-validation
+
+    Args:
+        model - nn.Module object, model to reset weights in
+    """
+
+    for layer in model.children():
+        if hasattr(layer, 'reset_parameters'):
+            print(f'Reset trainable parameters of layer = {layer}')
+            layer.reset_parameters()
+
