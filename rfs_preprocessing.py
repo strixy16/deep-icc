@@ -145,48 +145,48 @@ def pat_train_test_split(pat_num, label, split_perc, seed=16):
     return sets
 
 
-def pat_kfold_split(pat_num, label, folds=5, seed=16):
-    """
-    Function to split data into k-folds for cross-validation
-
-    Args:
-        pat_num - numpy array of patient numbers or ids to be split
-        label - numpy array of binary labels for the data, indicating recurrence or non-recurrence (censoring)
-        folds - number of folds to create
-        seed - seed for patient index shuffling
-    Returns:
-
-    """
-
-    # Separate out positive and negative labels to evenly distribute them between classes
-    # Get index of slices with 0 and 1 label
-    # z => zero, o => one
-    z_idx = np.asarray(np.where(label == 0)).squeeze()
-    o_idx = np.asarray(np.where(label == 1)).squeeze()
-
-    # Get patient ids of 0 and 1 labels
-    z_pats = pat_num[z_idx]
-    o_pats = pat_num[o_idx]
-
-    # Remove repeat patient ids (repeats are there because pat_nums has number for every slice)
-    # u => unique
-    uz_pats = np.unique(z_pats)
-    uo_pats = np.unique(o_pats)
-
-    np.random.seed(seed)
-    # Shuffle patient index for splitting
-    np.random.shuffle(uz_pats)
-    np.random.shuffle(uo_pats)
-
-    kf = KFold(n_splits=folds)
-
-    train_z_pat = kf.split(uz_pats)
-    (train_o_pat, test_o_pat) = kf.split(uo_pats)
-
-    # for train_index, test_index in kf.split(uz_pats)
-    #   make the fold sets now
-
-    print("stop here")
+# def pat_kfold_split(pat_num, label, folds=5, seed=16):
+#     """
+#     Function to split data into k-folds for cross-validation
+#
+#     Args:
+#         pat_num - numpy array of patient numbers or ids to be split
+#         label - numpy array of binary labels for the data, indicating recurrence or non-recurrence (censoring)
+#         folds - number of folds to create
+#         seed - seed for patient index shuffling
+#     Returns:
+#
+#     """
+#
+#     # Separate out positive and negative labels to evenly distribute them between classes
+#     # Get index of slices with 0 and 1 label
+#     # z => zero, o => one
+#     z_idx = np.asarray(np.where(label == 0)).squeeze()
+#     o_idx = np.asarray(np.where(label == 1)).squeeze()
+#
+#     # Get patient ids of 0 and 1 labels
+#     z_pats = pat_num[z_idx]
+#     o_pats = pat_num[o_idx]
+#
+#     # Remove repeat patient ids (repeats are there because pat_nums has number for every slice)
+#     # u => unique
+#     uz_pats = np.unique(z_pats)
+#     uo_pats = np.unique(o_pats)
+#
+#     np.random.seed(seed)
+#     # Shuffle patient index for splitting
+#     np.random.shuffle(uz_pats)
+#     np.random.shuffle(uo_pats)
+#
+#     kf = KFold(n_splits=folds)
+#
+#     train_z_pat = kf.split(uz_pats)
+#     (train_o_pat, test_o_pat) = kf.split(uo_pats)
+#
+#     # for train_index, test_index in kf.split(uz_pats)
+#     #   make the fold sets now
+#
+#     print("stop here")
 
 
 def removeSmallScans(info, img_path, img_dim, thresh):
