@@ -25,7 +25,7 @@ function opt = all_tumors
     % Spreadsheet of labels, excel file, for use in createCSV.m
     opt.Labels = "/Users/katyscott/Documents/ICC/Data/RFS_Scout.xlsx";
     % Header
-    opt.CSV_header = {'File', 'Pat ID', 'Slice Num', 'RFS Code', 'RFS Time'};
+    opt.CSV_header = {'File', 'Pat_ID', 'Slice_Num', 'RFS_Code', 'RFS_Time'};
     
 %     opt.Label1 = 'RFS Code'; % if a patient had cancer recurrence or not
 %     opt.Label2 = 'RFS Time'; % Time to recurrence
