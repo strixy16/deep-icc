@@ -31,9 +31,6 @@ def c_index(risk_pred, y, e):
     if not isinstance(e, np.ndarray):
         e = e.detach().cpu().numpy()
 
-    if not np.any(e):
-        print("This batch has no events")
-
     return concordance_index(y, risk_pred, e)
 
 
