@@ -1,12 +1,12 @@
-MSK_file = "../Data/TextureFeatures16D1.xlsx";
-eras_file = "../Data/TextureFeaturesErasmus16D1.xlsx";
+MSK_file = "../../Data/TextureFeatures16D1.xlsx";
+eras_file = "../../Data/TextureFeaturesErasmus16D1.xlsx";
 
 tbl_MSK = readtable(MSK_file);
 tbl_eras = readtable(eras_file);
 
 tbl_allfeat = [tbl_MSK; tbl_eras];
 
-tbl_RFS = readtable("../Data/RFS_Scout.xlsx");
+tbl_RFS = readtable("../../Data/RFS_Scout.xlsx");
 
 % Need to get out the ScoutID up to the second underscore
 % Removing _Tumor.mhd
@@ -42,7 +42,7 @@ xlabel('Predictor rank')
 ylabel('Predictor importance score')
 title("MRMR Feature Selection for CT Texture Features")
 top10 = [tbl_featandlabels(:,1:3) tbl_featandlabels(:,idx(1:10)+3)];
-writetable(top10, '../Data/selectTextFeatures.xlsx');
+writetable(top10, '../../Data/selectTextFeatures.xlsx');
 
 Mdl = fitrensemble(X, Y, 'Method', 'bag');
 
