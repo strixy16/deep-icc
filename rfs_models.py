@@ -167,16 +167,18 @@ class Regularization(object):
         return reg_loss
 
 
-def reset_weights(model):
+def reset_weights(model, verbose=0):
     """
     Resetting model weights to avoid weight leakage during cross-validation
 
     Args:
         model - nn.Module object, model to reset weights in
+        verbose - int, whether to print out what is being reset (true if 2)
     """
 
     for layer in model.children():
         if hasattr(layer, 'reset_parameters'):
-            print(f'Reset trainable parameters of layer = {layer}')
+            if verbose > 1:
+                print(f'Reset trainable parameters of layer = {layer}')
             layer.reset_parameters()
 
