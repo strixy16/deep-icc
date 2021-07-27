@@ -16,8 +16,8 @@ from rfs_utils import *
 from rfs_models import *
 
 parser = argparse.ArgumentParser(description='Training variables:')
-parser.add_argument('--batchsize', default=64, type=int, help='Number of samples used for each training cycle')
-parser.add_argument('--epochs', default=10, type=int, help='Number of training epochs to run')
+parser.add_argument('--batchsize', default=16, type=int, help='Number of samples used for each training cycle')
+parser.add_argument('--epochs', default=5, type=int, help='Number of training epochs to run')
 parser.add_argument('--imdim', default=256, type=int, help='Dimension of image to load')
 parser.add_argument('--lr', default=1e-3, type=float, help='Starting learning rate for training')
 parser.add_argument('--modelname', default='DeepConvSurv', type=str, help='Name of model type to build and train. Current options are KT6Model and DeepConvSurv')
@@ -45,7 +45,7 @@ def main():
     n_img_path = '/media/katy/Data/ICC/Data/Images/Tumors/' + str(args.imdim) + '/NaN/'
     save_path = '/media/katy/Data/ICC/Data/Output/' + str(args.modelname) + "-" + datetime.now().strftime("%Y-%m-%d-%H%M") + '/'
 
-    # Make output folder for today
+    # Make output folder for this run
     if not os.path.exists(save_path):
         os.makedirs(save_path)
 
@@ -54,8 +54,8 @@ def main():
     with open(save_param_fname, 'w') as f:
         json.dump(args.__dict__, f, indent=2)
 
-    # Setting up file to save out evaluation values to/load them from
-    save_eval_fname = os.path.join(save_path, 'convergence.csv')
+    # # Setting up file to save out evaluation values to/load them from
+    # save_eval_fname = os.path.join(save_path, 'convergence.csv')
 
     ### Data Loading ###
     info = pd.read_csv(info_path)
@@ -86,14 +86,27 @@ def main():
         train_loader = DataLoader(train_dataset, shuffle=True, batch_size=args.batchsize)
         val_loader = DataLoader(val_dataset, shuffle=True, batch_size=args.batchsize, drop_last=True)
 
+        # Setting up file to save out evaluation values to/load them from
+        save_eval_fname = os.path.join(save_path, 'convergence.csv')
+
         train(model, args.epochs, optimizer, criterion, train_loader, val_loader, save_eval_fname, args.plots)
+
 
     # K-fold cross validation
     elif args.validation == 1:
+        # For fold results
+        results = {}
+
         kf = KFold(n_splits=args.kfold_num)
 
         # Get unique patient numbers
         u_pats = np.unique(patnum)
+
+        # Shuffling patient numbers before generating folds
+        np.random.seed(args.randseed)
+        np.random.shuffle(u_pats)
+
+        # TODO: if this way of splitting doesn't work, do k-fold on censored/uncensored then combine as done in holdout
 
         for fold, (train_patidx, val_patidx) in enumerate(kf.split(u_pats)):
             print(f'FOLD {fold}')
@@ -109,15 +122,21 @@ def main():
             train_info = filtered_info.query('Pat_ID in @train_pats')
             val_info = filtered_info.query('Pat_ID in @val_pats')
 
-            train_dataset = CTSurvDataset(train_info, z_img_path, len(train_info), args.imdim)
-            val_dataset = CTSurvDataset(val_info, z_img_path, len(val_info), args.imdim)
+            # TODO: this is wrong, using train_pats as idx misses a bunch of slices
+            # Have already filtered out train and val indices from info, so passing in range of values for idx
+            train_dataset = CTSurvDataset(train_info, z_img_path, list(range(0, len(train_info))), args.imdim)
+            val_dataset = CTSurvDataset(val_info, z_img_path, list(range(0, len(val_info))), args.imdim)
 
-            train_loader = DataLoader(train_dataset, shuffle=True, batch_size=args.batchsize)
+            train_loader = DataLoader(train_dataset, shuffle=True, batch_size=args.batchsize, drop_last=True)
             val_loader = DataLoader(val_dataset, shuffle=True, batch_size=args.batchsize, drop_last=True)
 
-            train(model, args.epochs, optimizer, criterion, train_loader, val_loader, save_eval_fname, args.plots)
+            # Setting up file to save out evaluation values to/load them from
 
-            # TODO: figure out how the saving is gonna work for k-folds (5 versions of the training plots?)
+            fold_dir = save_path + 'fold_' + str(fold)
+            os.makedirs(fold_dir)
+            save_eval_fname = os.path.join(save_path, fold_dir, 'convergence.csv')
+
+            train(model, args.epochs, optimizer, criterion, train_loader, val_loader, save_eval_fname, args.plots)
 
     else:
         print("Invalid validation method selected.")
@@ -179,6 +198,7 @@ def train(model, epochs, optimizer, criterion, train_loader, val_loader, save_ev
             ciValMeter.update(val_c.item(), val_y.size(0))
 
         print('Epoch: {} \t Train Loss: {:.4f} \t Train CI: {:.3f} \t Val CI: {:.3f}'.format(epoch, train_loss, train_c, val_c))
+
         # output average results for this epoch
         save_error(ciMeter.avg, ciValMeter.avg, coxLossMeter.avg, varMeter.avg, epoch,
                    save_eval_fname)
