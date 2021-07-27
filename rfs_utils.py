@@ -62,7 +62,7 @@ def save_error(train_ci, val_ci, coxLoss, variance, epoch, slname):
         Args:
             train_ci: float, training concordance index for this epoch
             val_ci: float, validation concordance index for this epoch
-            coxLoss: , training loss, negative log likelihood
+            coxLoss: float, training loss, negative log likelihood
             variance:
             epoch: int, epoch these stats are from
             slname: string, filename (sl = save location)
