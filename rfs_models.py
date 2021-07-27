@@ -104,6 +104,7 @@ class DeepConvSurv(nn.Module):
         return out
 
 
+
 class NegativeLogLikelihood(nn.Module):
     """Negative log likelihood loss function from Katzman et al. (2018) DeepSurv model (equation 4)"""
 
@@ -167,7 +168,7 @@ class Regularization(object):
         return reg_loss
 
 
-def reset_weights(model, verbose=0):
+def reset_weights(model):
     """
     Resetting model weights to avoid weight leakage during cross-validation
 
@@ -178,7 +179,6 @@ def reset_weights(model, verbose=0):
 
     for layer in model.children():
         if hasattr(layer, 'reset_parameters'):
-            if verbose > 1:
-                print(f'Reset trainable parameters of layer = {layer}')
+            print(f'Reset trainable parameters of layer = {layer}')
             layer.reset_parameters()
 

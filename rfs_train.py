@@ -26,7 +26,7 @@ parser.add_argument('--split', default=0.8, type=float, help='Fraction of data t
 parser.add_argument('--scanthresh', default=300, type=int, help='Threshold for number of tumour pixels to filter images through')
 parser.add_argument('--validation', default=1, type=int, help='Select validation method from list: 0: hold out, 1: k-fold')
 parser.add_argument('--kfold_num', default=5, type=int, help='If using k-fold cross validation, supply k value')
-parser.add_argument('--verbose', default=1, type=int, help='Levels of output: 0: none, 1: training output, 2: most verbose')
+parser.add_argument('--verbose', default=1, type=int, help='Levels of output: 0: none, 1: training output')
 parser.add_argument('--plots', default=True, type=bool,
                     help='Save plots of evaluation values over model training')
 
@@ -115,7 +115,7 @@ def main():
                 print('-------------------------------------')
 
             # Resetting parameters between folds
-            reset_weights(model, args.verbose)
+            model.apply(reset_weights)
 
             # Get patient numbers from idx values for this fold
             train_pats = u_pats[train_patidx]
@@ -215,6 +215,7 @@ def train(model, epochs, optimizer, criterion, train_loader, val_loader, save_ev
     if plots:
         saveplot_coxloss(save_eval_fname, model._get_name())
         saveplot_concordance(save_eval_fname, model._get_name())
+
 
 
 if __name__ == '__main__':
