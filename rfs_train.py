@@ -166,6 +166,12 @@ def train(model, epochs, optimizer, criterion, train_loader, val_loader, save_ev
          criterion - , loss function to use in optimization
          save_eval_fname - string, filename + path to save training results
          plots - bool, whether to save out loss and c-index plots over training
+
+    Returns:
+        ciMeter.avg:
+        ciValMeter.avg
+        coxLossMeter.avg
+
     """
     for epoch in range(0, epochs):
         # Initialize value holders for loss, c-index, and var values
@@ -197,16 +203,17 @@ def train(model, epochs, optimizer, criterion, train_loader, val_loader, save_ev
             val_c = c_index(val_riskpred, val_y, val_e)
             ciValMeter.update(val_c.item(), val_y.size(0))
 
-        print('Epoch: {} \t Train Loss: {:.4f} \t Train CI: {:.3f} \t Val CI: {:.3f}'.format(epoch, train_loss, train_c, val_c))
+        # Printing average loss and c-index values for the epoch
+        print('Epoch: {} \t Train Loss: {:.4f} \t Train CI: {:.3f} \t Val CI: {:.3f}'.format(epoch, coxLossMeter.avg, ciMeter.avg, ciValMeter.avg))
 
-        # output average results for this epoch
-        save_error(ciMeter.avg, ciValMeter.avg, coxLossMeter.avg, varMeter.avg, epoch,
-                   save_eval_fname)
+        # Saving average results for this epoch
+        save_error(ciMeter.avg, ciValMeter.avg, coxLossMeter.avg, varMeter.avg, epoch, save_eval_fname)
 
     if plots:
         saveplot_coxloss(save_eval_fname, model._get_name())
         saveplot_concordance(save_eval_fname, model._get_name())
 
+    return ciMeter.avg, ciValMeter.avg, coxLossMeter.avg
 
 if __name__ == '__main__':
     main()
