@@ -26,6 +26,7 @@ parser.add_argument('--split', default=0.8, type=float, help='Fraction of data t
 parser.add_argument('--scanthresh', default=300, type=int, help='Threshold for number of tumour pixels to filter images through')
 parser.add_argument('--validation', default=1, type=int, help='Select validation method from list: 0: hold out, 1: k-fold')
 parser.add_argument('--kfold_num', default=5, type=int, help='If using k-fold cross validation, supply k value')
+parser.add_argument('--verbose', default=1, type=int, help='Levels of output: 0: none, 1: training output, 2: most verbose')
 parser.add_argument('--plots', default=True, type=bool,
                     help='Save plots of evaluation values over model training')
 
@@ -89,7 +90,7 @@ def main():
         # Setting up file to save out evaluation values to/load them from
         save_eval_fname = os.path.join(save_path, 'convergence.csv')
 
-        train(model, args.epochs, optimizer, criterion, train_loader, val_loader, save_eval_fname, args.plots)
+        train(model, args.epochs, optimizer, criterion, train_loader, val_loader, save_eval_fname, args.plots, args.verbose)
 
 
     # K-fold cross validation
@@ -109,10 +110,12 @@ def main():
         # TODO: if this way of splitting doesn't work, do k-fold on censored/uncensored then combine as done in holdout
 
         for fold, (train_patidx, val_patidx) in enumerate(kf.split(u_pats)):
-            print(f'FOLD {fold}')
-            print('-------------------------------------')
+            if args.verbose > 0:
+                print(f'FOLD {fold}')
+                print('-------------------------------------')
 
-            model.apply(reset_weights)
+            # Resetting parameters between folds
+            reset_weights(model, args.verbose)
 
             # Get patient numbers from idx values for this fold
             train_pats = u_pats[train_patidx]
@@ -122,7 +125,6 @@ def main():
             train_info = filtered_info.query('Pat_ID in @train_pats')
             val_info = filtered_info.query('Pat_ID in @val_pats')
 
-            # TODO: this is wrong, using train_pats as idx misses a bunch of slices
             # Have already filtered out train and val indices from info, so passing in range of values for idx
             train_dataset = CTSurvDataset(train_info, z_img_path, list(range(0, len(train_info))), args.imdim)
             val_dataset = CTSurvDataset(val_info, z_img_path, list(range(0, len(val_info))), args.imdim)
@@ -155,7 +157,7 @@ def main():
     # train(model, args.epochs, optimizer, criterion, train_loader, val_loader, save_eval_fname, args.plots)
 
 
-def train(model, epochs, optimizer, criterion, train_loader, val_loader, save_eval_fname, plots=True):
+def train(model, epochs, optimizer, criterion, train_loader, val_loader, save_eval_fname, plots=True, verbose=1):
     """
     Function to train a given neural network model
 
@@ -203,8 +205,9 @@ def train(model, epochs, optimizer, criterion, train_loader, val_loader, save_ev
             val_c = c_index(val_riskpred, val_y, val_e)
             ciValMeter.update(val_c.item(), val_y.size(0))
 
-        # Printing average loss and c-index values for the epoch
-        print('Epoch: {} \t Train Loss: {:.4f} \t Train CI: {:.3f} \t Val CI: {:.3f}'.format(epoch, coxLossMeter.avg, ciMeter.avg, ciValMeter.avg))
+        if verbose > 0:
+            # Printing average loss and c-index values for the epoch
+            print('Epoch: {} \t Train Loss: {:.4f} \t Train CI: {:.3f} \t Val CI: {:.3f}'.format(epoch, coxLossMeter.avg, ciMeter.avg, ciValMeter.avg))
 
         # Saving average results for this epoch
         save_error(ciMeter.avg, ciValMeter.avg, coxLossMeter.avg, varMeter.avg, epoch, save_eval_fname)
@@ -213,7 +216,6 @@ def train(model, epochs, optimizer, criterion, train_loader, val_loader, save_ev
         saveplot_coxloss(save_eval_fname, model._get_name())
         saveplot_concordance(save_eval_fname, model._get_name())
 
-    return ciMeter.avg, ciValMeter.avg, coxLossMeter.avg
 
 if __name__ == '__main__':
     main()
