@@ -6,10 +6,12 @@
 
 import torch
 import torch.nn as nn
+import torchvision.models as models
 
 
 class KT6Model(nn.Module):
     """ KT6Model - CNN developed in CISC867 course"""
+    # TODO: Make dropout values tuneable?
 
     def __init__(self):
         super(KT6Model, self).__init__()
@@ -103,6 +105,40 @@ class DeepConvSurv(nn.Module):
         out = self.layer4(out)
         return out
 
+
+class ResNet(nn.Module):
+    def __init__(self, resnet_type):
+        super(ResNet, self).__init__()
+        res_model = ''
+        if resnet_type == '18':
+            res_model = models.resnet18(pretrained=True)
+        elif resnet_type == '34':
+            res_model = models.resnet34(pretrained=True)
+
+        # Setup all resnet layers except final FC layer
+        self.orig = nn.Sequential(*(list(res_model.children())[:-1]))
+        for param in self.orig.parameters():
+            param.requires_grad = False
+
+        # Replace final linear layer with this one
+        self.layercph = nn.Sequential(
+            nn.Linear(512, 256),
+            nn.ReLU(),
+            nn.BatchNorm1d(256),
+            nn.Dropout(0.2), # TODO: make this an input parameter
+            nn.Linear(256, 128),
+            nn.ReLU(),
+            nn.Linear(128, 1)
+        )
+
+    def forward(self, x):
+        # Resnet model
+        out = self.orig(x)
+        # Flatten for FC
+        out = out.view(out.size(0), -1)
+        # CPH output
+        out = self.layercph(out)
+        return out
 
 
 class NegativeLogLikelihood(nn.Module):
