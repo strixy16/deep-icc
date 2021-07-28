@@ -39,7 +39,6 @@ class CTSurvDataset(Dataset):
         # TODO: introduce MinMaxScaler and/or Normalization
 
     def __getitem__(self, index):
-        fname = self.fname[index]
         e_tensor = torch.Tensor([self.event[index]]).int()
         t_tensor = torch.Tensor([self.time[index]])
 
