@@ -33,15 +33,15 @@ parser.add_argument('--split', default=0.8, type=float, help='Fraction of data t
                                                              'hold-out validation')
 parser.add_argument('--kfold_num', default=5, type=int, help='If using k-fold cross validation, supply k value')
 parser.add_argument('--verbose', default=1, type=int, help='Levels of output: 0: none, 1: training output')
-parser.add_argument('--plots', default=True, type=bool,
-                    help='Save plots of evaluation values over model training')
+parser.add_argument('--plots', default=True, type=bool, help='Save plots of evaluation values over model training')
 
 
 def main():
     global args, device
 
     # Utilize GPUs for Tensor computations if available
-    device = torch.device("cpu")
+    # device = torch.device("cpu")
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     # Training variables
     args = parser.parse_args()
@@ -162,18 +162,6 @@ def main():
     else:
         print("Invalid validation method selected.")
         return -1
-
-    # # Split data into train and validation sets
-    # train_idx, val_idx = pat_train_test_split(patnum, event, args.split, args.randseed)
-    #
-    # # Set up data with custom Dataset class (in rfs_utils)
-    # train_dataset = CTSurvDataset(filtered_info, z_img_path, train_idx, args.imdim)
-    # val_dataset = CTSurvDataset(filtered_info, z_img_path, val_idx, args.imdim)
-    #
-    # train_loader = DataLoader(train_dataset, shuffle=True, batch_size=args.batchsize)
-    # val_loader = DataLoader(val_dataset, shuffle=True, batch_size=args.batchsize, drop_last=True)
-
-    # train(model, args.epochs, optimizer, criterion, train_loader, val_loader, save_eval_fname, args.plots)
 
 
 def train(model, epochs, optimizer, criterion, train_loader, val_loader, save_eval_fname, plots=True, verbose=1):
