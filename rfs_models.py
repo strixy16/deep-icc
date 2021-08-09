@@ -13,7 +13,7 @@ class KT6Model(nn.Module):
     """ KT6Model - CNN developed in CISC867 course"""
     # TODO: Make dropout values tuneable?
 
-    def __init__(self):
+    def __init__(self, do1=0.7, do2=0.5):
         super(KT6Model, self).__init__()
         # L1 ImgIn shape=(?, 1, 256, 256)
         # Conv -> (?, 32, 84, 84)
@@ -22,14 +22,14 @@ class KT6Model(nn.Module):
             nn.Conv2d(1, 32, kernel_size=7, stride=3),
             nn.SELU(),
             nn.MaxPool2d(kernel_size=2, stride=2),
-            nn.Dropout(0.7)
+            nn.Dropout(do1)
         )
         # L2 ImgIn shape = (?, 32, 42, 42)
         # Conv -> (?, 32, 19, 19)
         self.layer2 = nn.Sequential(
             nn.Conv2d(32, 32, kernel_size=5, stride=2),
             nn.SELU(),
-            nn.Dropout(0.5),
+            nn.Dropout(do2),
         )
         # L3 ImgIn shape = (?, 32, 19, 19)
         # Conv -> (?, 32, 9, 9)
