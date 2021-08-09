@@ -64,10 +64,10 @@ def main():
     #     json.dump(args.__dict__, f, indent=2)
 
     config = {
-        "batchsize": tune.choice[8, 16, 32, 64],
+        "batchsize": tune.choice([8, 16, 32, 64]),
         "learnrate": tune.loguniform(1e-4, 1e-1),
-        "drop0": tune.loguniform(0.05, 0.9),
-        "drop1": tune.loguniform(0.05, 0.9)
+        "drop1": tune.loguniform(0.05, 0.9),
+        "drop2": tune.loguniform(0.05, 0.9)
     }
     scheduler = ASHAScheduler(
         metric="loss",
@@ -98,6 +98,7 @@ def main():
     # train(config, args, train_dataset, val_dataset, )
     result = tune.run(
         partial(train, args=args, trainset=train_dataset, valset=val_dataset),
+        resources_per_trial={"cpu": 2, "gpu": 1},
         config=config,
         scheduler=scheduler,
         progress_reporter=reporter
@@ -109,7 +110,7 @@ def main():
         best_trial.last_result["loss"]))
     print("Best trial final validation accuracy: {}".format(
         best_trial.last_result["accuracy"]))
-    
+
 
 def train(config, args, trainset, valset, checkpoint_dir=None):
     # Utilize GPUs for Tensor computations if available
@@ -138,8 +139,8 @@ def train(config, args, trainset, valset, checkpoint_dir=None):
         model.load_state_dict(model_state)
         optimizer.load_state_dict(optimizer_state)
 
-    train_loader = DataLoader(trainset, shuffle=True, batch_size=args.batchsize, drop_last=True)
-    val_loader = DataLoader(valset, shuffle=True, batch_size=args.batchsize, drop_last=True)
+    train_loader = DataLoader(trainset, shuffle=True, batch_size=config["batchsize"], drop_last=True)
+    val_loader = DataLoader(valset, shuffle=True, batch_size=config["batchsize"], drop_last=True)
 
     for epoch in range(args.epochs):
         # Initialize value holders for loss, c-index, and var values
@@ -181,3 +182,7 @@ def train(config, args, trainset, valset, checkpoint_dir=None):
         # Printing average loss and c-index values for the epoch
         print('Epoch: {} \t Train Loss: {:.4f} \t Train CI: {:.3f} \t Val CI: {:.3f}'.format(epoch, coxLossMeter.avg,
                                                                                             ciMeter.avg, ciValMeter.avg))
+
+
+if __name__ == '__main__':
+    main()
