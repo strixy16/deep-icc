@@ -107,7 +107,7 @@ class DeepConvSurv(nn.Module):
 
 
 class ResNet(nn.Module):
-    def __init__(self, resnet_type):
+    def __init__(self, resnet_type, l2=256, l3=128, d1=0, d2=0):
         super(ResNet, self).__init__()
         res_model = ''
         if resnet_type == '18':
@@ -122,13 +122,15 @@ class ResNet(nn.Module):
 
         # Replace final linear layer with this one
         self.layercph = nn.Sequential(
-            nn.Linear(512, 256),
+            # This has to be 512 because that's the output from the resnet18 and 34 models
+            nn.Linear(512, l2),
             nn.ReLU(),
-            nn.BatchNorm1d(256),
-            nn.Dropout(0.2), # TODO: make this an input parameter
-            nn.Linear(256, 128),
+            nn.BatchNorm1d(l2),
+            nn.Dropout(d1),
+            nn.Linear(l2, l3),
             nn.ReLU(),
-            nn.Linear(128, 1)
+            nn.Dropout(d2),
+            nn.Linear(l3, 1)
         )
 
     def forward(self, x):
