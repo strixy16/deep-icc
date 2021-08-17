@@ -36,6 +36,8 @@ parser.add_argument('--kfold_num', default=5, type=int, help='If using k-fold cr
 parser.add_argument('--verbose', default=1, type=int, help='Levels of output: 0: none, 1: training output')
 parser.add_argument('--plots', default=True, type=bool, help='Save plots of evaluation values over model training')
 
+CUDA_LAUNCH_BLOCKING = 1
+
 
 def define_resnet(trial, resnet_type):
     """
@@ -122,7 +124,6 @@ def objective(trial):
     elif args.modelname == "Resnet34":
         model = define_resnet(trial, resnet_type='34')
 
-    model.half()
     model.to(device)
 
     # Setting up training hyperparameters
@@ -143,7 +144,7 @@ def objective(trial):
                 rgb_X = torch.from_numpy(rgb_X)
                 X = torch.reshape(rgb_X, (rgb_X.shape[0], rgb_X.shape[-1], rgb_X.shape[2], rgb_X.shape[3]))
 
-            X, y, e = X.half().to(device), y.to(device), e.to(device)
+            X, y, e = X.float().to(device), y.to(device), e.to(device)
 
             risk_pred = model(X)
             # Calculate loss
@@ -152,18 +153,13 @@ def objective(trial):
 
             optimizer.zero_grad()
             train_loss.backward()
-            # Switch model to full precision for updating gradients
-            model.float()
             optimizer.step()
 
             if torch.isnan(risk_pred).any() or torch.isnan(y).any() or torch.isnan(e).any():
-                print(risk_pred)
-                print(y)
-                print(e)
+                print(risk_pred[0])
                 print("stop here")
 
             train_c = c_index(risk_pred, y, e)
-            model.float()
 
         # VALIDATION
         model.eval()
@@ -177,7 +173,7 @@ def objective(trial):
                 rgb_valX = torch.from_numpy(rgb_valX)
                 val_X = torch.reshape(rgb_valX, (rgb_valX.shape[0], rgb_valX.shape[-1], rgb_valX.shape[2], rgb_valX.shape[3]))
 
-            val_X, val_y, val_e = val_X.half().to(device), val_y.to(device), val_e.to(device)
+            val_X, val_y, val_e = val_X.float().to(device), val_y.to(device), val_e.to(device)
 
             val_riskpred = model(val_X)
             val_cox_loss = criterion(-val_riskpred, val_y, val_e, model)
