@@ -38,21 +38,48 @@ parser.add_argument('--plots', default=True, type=bool, help='Save plots of eval
 
 
 def define_resnet(trial, resnet_type):
+    """
+    Setting up Resnet model with Optuna tuning for variables
+
+    Args:
+         trial: optuna.trial.Trial, interface for parameter suggestion
+         resnet_type: string, size of Resnet to build
+
+    Returns:
+        model: ResNet nn.Module, model constructed with parameters from Optuna
+    """
+    # Number of nodes for last two fully connected layers before output
     l2 = trial.suggest_int("l2", 4, 512)
     l3 = trial.suggest_int("l3", 4, 512)
+
+    # Dropout values
     d1 = trial.suggest_float("d1", 0.2, 0.7)
     d2 = trial.suggest_float("d2", 0.2, 0.7)
 
-    model = ResNet(resnet_type, l2, l3, d1)
+    model = ResNet(resnet_type, l2, l3, d1, d2)
     return model
 
 
 def load_chol_tumor(data_dir="../Data/", imdim=256, scanthresh=300, split=0.8, batch_size=32, seed=16):
+    """
+    Setting up data loading for cholangio tumour images and labels
 
+    Args:
+        data_dir: string, path to Data directory containing Images and Labels
+        imdim: int, size of image to load
+        scanthresh: int, threshold for removeSmallScans (number of tumour pixels required)
+        split: float, value for hold out validation, size of train set
+        batch_size: int, number of samples per batch
+        seed: int, random seed value
+
+    Returns:
+        train_loader: DataLoader for train set
+        val_loader: DataLoader for validation set
+    """
+    # Get paths to images and labels
     info_path = os.path.join(data_dir, 'Labels', str(imdim),'RFS_all_tumors_zero.csv')
     z_img_path = os.path.join(data_dir, 'Images/Tumors', str(imdim), 'Zero/')
 
-    ## Data Loading ###
     info = pd.read_csv(info_path)
 
     # Filter scans with mostly background in the image
@@ -74,80 +101,6 @@ def load_chol_tumor(data_dir="../Data/", imdim=256, scanthresh=300, split=0.8, b
 
     return train_loader, val_loader
 
-
-# def train(model, epochs, optimizer, criterion, train_loader, val_loader, trial, save_eval_fname, plots=True, verbose=1):
-#     """
-#     Function to train a given neural network model
-#
-#     Args:
-#          model - nn.Module, model to train
-#          epochs - int, number of epochs to train model for
-#          optimizer - torch.optim object, optimizer to use in model training
-#          criterion - , loss function to use in optimization
-#          save_eval_fname - string, filename + path to save training results
-#          plots - bool, whether to save out loss and c-index plots over training
-#
-#     Returns:
-#         ciMeter.avg:
-#         ciValMeter.avg
-#         coxLossMeter.avg
-#
-#     """
-#     for epoch in range(0, epochs):
-#         # Initialize value holders for loss, c-index, and var values
-#         coxLossMeter = AverageMeter()
-#         ciMeter = AverageMeter()
-#         varMeter = AverageMeter()
-#
-#         # TRAINING
-#         model.train()
-#         for X, y, e in train_loader:
-#             # Resnet models expect an RGB image - generate a 3 channel version of CT image here
-#             if isinstance(model, ResNet):
-#                 # Convert grayscale image to rgb to generate 3 channels
-#                 rgb_X = gray2rgb(X)
-#                 # Reshape so channels is second value
-#                 rgb_X = torch.from_numpy(rgb_X)
-#                 X = torch.reshape(rgb_X, (rgb_X.shape[0], rgb_X.shape[-1], rgb_X.shape[2], rgb_X.shape[3]))
-#
-#             risk_pred = model(X.float().to(device))
-#             # Calculate loss
-#             cox_loss = criterion(-risk_pred, y.to(device), e.to(device), model)
-#             train_loss = cox_loss
-#
-#             optimizer.zero_grad()
-#             train_loss.backward()
-#             optimizer.step()
-#             coxLossMeter.update(cox_loss.item(), y.size(0))
-#             varMeter.update(risk_pred.var(), y.size(0))
-#             train_c = c_index(risk_pred, y, e)
-#             ciMeter.update(train_c.item(), y.size(0))
-#
-#         # VALIDATION
-#         model.eval()
-#         ciValMeter = AverageMeter()
-#         for val_X, val_y, val_e in val_loader:
-#             # Resnet models expect an RGB image - generate a 3 channel version of CT image here
-#             if isinstance(model, ResNet):
-#                 # Convert grayscale image to rgb to generate 3 channels
-#                 rgb_valX = gray2rgb(val_X)
-#                 # Reshape so channels is second value
-#                 rgb_valX = torch.from_numpy(rgb_valX)
-#                 val_X = torch.reshape(rgb_valX, (rgb_valX.shape[0], rgb_valX.shape[-1], rgb_valX.shape[2], rgb_valX.shape[3]))
-#
-#             val_riskpred = model(val_X.float().to(device))
-#             val_c = c_index(val_riskpred, val_y, val_e)
-#             ciValMeter.update(val_c.item(), val_y.size(0))
-#
-#         if verbose > 0:
-#             # Printing average loss and c-index values for the epoch
-#             print('Epoch: {} \t Train Loss: {:.4f} \t Train CI: {:.3f} \t Val CI: {:.3f}'.format(epoch, coxLossMeter.avg, ciMeter.avg, ciValMeter.avg))
-#
-#         # Saving average results for this epoch
-#         # save_error(ciMeter.avg, ciValMeter.avg, coxLossMeter.avg, varMeter.avg, epoch, save_eval_fname)
-#
-#         # TODO: need to figure out how to return c-index/make it what is being maximized?
-
         
 def objective(trial):
     global args, device
@@ -159,19 +112,27 @@ def objective(trial):
     # Training variables
     args = parser.parse_args()
 
+    # Get DataLoader objects for train and validation sets
     train_loader, val_loader = load_chol_tumor(args.datadir, imdim=args.imdim, scanthresh=args.scanthresh, split=args.split,
                                                batch_size=args.batchsize, seed=args.randseed)
 
+    # Define model
     if args.modelname == "Resnet18":
-        model = define_resnet(trial, resnet_type='18').to(device)
+        model = define_resnet(trial, resnet_type='18')
+    elif args.modelname == "Resnet34":
+        model = define_resnet(trial, resnet_type='34')
 
+    model.half()
+    model.to(device)
+
+    # Setting up training hyperparameters
     optimizer_name = trial.suggest_categorical("optimizer", ["Adam", "RMSprop", "SGD"])
     lr = trial.suggest_float("lr", 1e-5, 1e-1, log=True)
     optimizer = getattr(optim, optimizer_name)(model.parameters(), lr=lr)
     criterion = NegativeLogLikelihood(device)
 
+    # Model training
     for epoch in range(args.epochs):
-        print(epoch)
         model.train()
         for X, y, e in train_loader:
             # Resnet models expect an RGB image - generate a 3 channel version of CT image here
@@ -182,7 +143,7 @@ def objective(trial):
                 rgb_X = torch.from_numpy(rgb_X)
                 X = torch.reshape(rgb_X, (rgb_X.shape[0], rgb_X.shape[-1], rgb_X.shape[2], rgb_X.shape[3]))
 
-            X, y, e = X.float().to(device), y.to(device), e.to(device)
+            X, y, e = X.half().to(device), y.to(device), e.to(device)
 
             risk_pred = model(X)
             # Calculate loss
@@ -191,6 +152,8 @@ def objective(trial):
 
             optimizer.zero_grad()
             train_loss.backward()
+            # Switch model to full precision for updating gradients
+            model.float()
             optimizer.step()
 
             if torch.isnan(risk_pred).any() or torch.isnan(y).any() or torch.isnan(e).any():
@@ -200,6 +163,7 @@ def objective(trial):
                 print("stop here")
 
             train_c = c_index(risk_pred, y, e)
+            model.float()
 
         # VALIDATION
         model.eval()
@@ -213,7 +177,7 @@ def objective(trial):
                 rgb_valX = torch.from_numpy(rgb_valX)
                 val_X = torch.reshape(rgb_valX, (rgb_valX.shape[0], rgb_valX.shape[-1], rgb_valX.shape[2], rgb_valX.shape[3]))
 
-            val_X, val_y, val_e = val_X.float().to(device), val_y.to(device), val_e.to(device)
+            val_X, val_y, val_e = val_X.half().to(device), val_y.to(device), val_e.to(device)
 
             val_riskpred = model(val_X)
             val_cox_loss = criterion(-val_riskpred, val_y, val_e, model)
