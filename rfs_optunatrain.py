@@ -5,6 +5,7 @@ import json
 import os
 import optuna
 from optuna.trial import TrialState
+import pickle
 from sklearn.model_selection import KFold
 from skimage.color import gray2rgb
 import torch.optim as optim
@@ -19,7 +20,7 @@ parser.add_argument('--batchsize', default=32, type=int, help='Number of samples
 parser.add_argument('--datadir', default='/media/katy/Data/ICC/Data', type=str, help='Full path to the Data directory '
                                                                                      'where images, labels, are stored'
                                                                                      'and output will be saved.')
-parser.add_argument('--epochs', default=10, type=int, help='Number of training epochs to run')
+parser.add_argument('--epochs', default=5, type=int, help='Number of training epochs to run')
 parser.add_argument('--imdim', default=256, type=int, help='Dimension of image to load')
 # parser.add_argument('--learnrate', default=3e-3, type=float, help='Starting learning rate for training')
 parser.add_argument('--modelname', default='Resnet18', type=str, help='Name of model type to build and train. '
@@ -105,14 +106,6 @@ def load_chol_tumor(data_dir="../Data/", imdim=256, scanthresh=300, split=0.8, b
 
         
 def objective(trial):
-    global args, device
-
-    # Utilize GPUs for Tensor computations if available
-    # device = torch.device("cpu")
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-    # Training variables
-    args = parser.parse_args()
 
     # Get DataLoader objects for train and validation sets
     train_loader, val_loader = load_chol_tumor(args.datadir, imdim=args.imdim, scanthresh=args.scanthresh, split=args.split,
@@ -127,7 +120,7 @@ def objective(trial):
     model.to(device)
 
     # Setting up training hyperparameters
-    optimizer_name = trial.suggest_categorical("optimizer", ["Adam", "RMSprop", "SGD"])
+    optimizer_name = trial.suggest_categorical("optimizer", ["Adam", "SGD"])
     lr = trial.suggest_float("lr", 1e-5, 1e-1, log=True)
     optimizer = getattr(optim, optimizer_name)(model.parameters(), lr=lr)
     criterion = NegativeLogLikelihood(device)
@@ -178,6 +171,11 @@ def objective(trial):
             val_riskpred = model(val_X)
             val_cox_loss = criterion(-val_riskpred, val_y, val_e, model)
             val_c = c_index(val_riskpred, val_y, val_e)
+
+            if torch.isnan(val_riskpred).any() or torch.isnan(val_y).any() or torch.isnan(val_e).any():
+                print(val_riskpred[0])
+                print("stop here")
+
             ciValMeter.update(val_c.item(), val_y.size(0))
 
         trial.report(val_c, epoch)
@@ -190,8 +188,23 @@ def objective(trial):
 
 
 if __name__ == "__main__":
+    global args, device
+
+    # Utilize GPUs for Tensor computations if available
+    # device = torch.device("cpu")
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    # Training variables
+    args = parser.parse_args()
+
+    out_dir = 'Output/' + str(args.modelname) + "-" + datetime.now().strftime("%Y-%m-%d-%H%M")
+    out_path = os.path.join(args.datadir, out_dir)
+    # Make output folder for this run
+    if not os.path.exists(out_path):
+        os.makedirs(out_path)
+
     study = optuna.create_study(direction="maximize")
-    study.optimize(objective, n_trials=100, timeout=600)
+    study.optimize(objective, n_trials=1, timeout=600)
 
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
     complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
@@ -209,3 +222,17 @@ if __name__ == "__main__":
     print("   Params: ")
     for key, value in trial.params.items():
         print("     {}: {}".format(key, value))
+
+    # Save out parameters from best trial
+    param_fname = os.path.join(out_path, 'parameters.txt')
+    with open(param_fname, 'w') as f:
+        json.dump(args.__dict__, f, indent=2)
+        f.write('\n')
+        json.dump(trial.params, f, indent=2)
+
+
+    # TODO: saving out trial
+    trial_fname = os.path.join(out_path, 'best_trial.pkl')
+    outfile = open(trial_fname, 'wb')
+    pickle.dump(trial, outfile)
+    outfile.close()
