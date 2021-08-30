@@ -20,7 +20,7 @@ parser.add_argument('--batchsize', default=32, type=int, help='Number of samples
 parser.add_argument('--datadir', default='/media/katy/Data/ICC/Data', type=str, help='Full path to the Data directory '
                                                                                      'where images, labels, are stored'
                                                                                      'and output will be saved.')
-parser.add_argument('--epochs', default=5, type=int, help='Number of training epochs to run')
+parser.add_argument('--epochs', default=100, type=int, help='Number of training epochs to run')
 parser.add_argument('--imdim', default=256, type=int, help='Dimension of image to load')
 # parser.add_argument('--learnrate', default=3e-3, type=float, help='Starting learning rate for training')
 parser.add_argument('--modelname', default='Resnet18', type=str, help='Name of model type to build and train. '
@@ -37,7 +37,7 @@ parser.add_argument('--kfold_num', default=5, type=int, help='If using k-fold cr
 parser.add_argument('--verbose', default=1, type=int, help='Levels of output: 0: none, 1: training output')
 parser.add_argument('--plots', default=True, type=bool, help='Save plots of evaluation values over model training')
 
-CUDA_LAUNCH_BLOCKING = 1
+
 
 
 def define_resnet(trial, resnet_type):
@@ -99,7 +99,7 @@ def load_chol_tumor(data_dir="../Data/", imdim=256, scanthresh=300, split=0.8, b
     train_dataset = CTSurvDataset(filtered_info, z_img_path, train_idx, imdim)
     val_dataset = CTSurvDataset(filtered_info, z_img_path, val_idx, imdim)
 
-    train_loader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size, drop_last=True)
+    train_loader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size) # ,drop_last=True)
     val_loader = DataLoader(val_dataset, shuffle=True, batch_size=batch_size, drop_last=True)
 
     return train_loader, val_loader
@@ -125,8 +125,14 @@ def objective(trial):
     optimizer = getattr(optim, optimizer_name)(model.parameters(), lr=lr)
     criterion = NegativeLogLikelihood(device)
 
+    print("")
     # Model training
     for epoch in range(args.epochs):
+        # Initialize value holders for loss, c-index, and var values
+        coxLossMeter = AverageMeter()
+        ciMeter = AverageMeter()
+        varMeter = AverageMeter()
+
         model.train()
         for X, y, e in train_loader:
             # Resnet models expect an RGB image - generate a 3 channel version of CT image here
@@ -148,11 +154,16 @@ def objective(trial):
             train_loss.backward()
             optimizer.step()
 
+            coxLossMeter.update(cox_loss.item(), y.size(0))
+            varMeter.update(risk_pred.var(), y.size(0))
+
             if torch.isnan(risk_pred).any() or torch.isnan(y).any() or torch.isnan(e).any():
                 print(risk_pred[0])
-                print("stop here")
+                print("Got NaNs in risk_pred. Pruning this trial.")
+                raise optuna.exceptions.TrialPruned()
 
             train_c = c_index(risk_pred, y, e)
+            ciMeter.update(train_c.item(), y.size(0))
 
         # VALIDATION
         model.eval()
@@ -170,16 +181,21 @@ def objective(trial):
 
             val_riskpred = model(val_X)
             val_cox_loss = criterion(-val_riskpred, val_y, val_e, model)
-            val_c = c_index(val_riskpred, val_y, val_e)
 
             if torch.isnan(val_riskpred).any() or torch.isnan(val_y).any() or torch.isnan(val_e).any():
                 print(val_riskpred[0])
-                print("stop here")
+                print("Got NaNs in val_riskpred. Pruning this trial.")
+                raise optuna.exceptions.TrialPruned()
 
+            val_c = c_index(val_riskpred, val_y, val_e)
             ciValMeter.update(val_c.item(), val_y.size(0))
 
+        # print('Epoch: {} \t Train Loss: {:.4f} \t Train CI: {:.3f} \t Val CI: {:.3f}'.format(epoch, coxLossMeter.avg,
+        #                                                                                      ciMeter.avg,
+        #                                                                                      ciValMeter.avg))
         trial.report(val_c, epoch)
 
+        torch.cuda.empty_cache()
         # Handle pruning based on the intermediate value
         if trial.should_prune():
             raise optuna.exceptions.TrialPruned()
@@ -188,7 +204,9 @@ def objective(trial):
 
 
 if __name__ == "__main__":
-    global args, device
+    global args, device, CUDA_LAUNCH_BLOCKING
+
+    CUDA_LAUNCH_BLOCKING = 1
 
     # Utilize GPUs for Tensor computations if available
     # device = torch.device("cpu")
@@ -203,8 +221,10 @@ if __name__ == "__main__":
     if not os.path.exists(out_path):
         os.makedirs(out_path)
 
+
+
     study = optuna.create_study(direction="maximize")
-    study.optimize(objective, n_trials=1, timeout=600)
+    study.optimize(objective, n_trials=100)
 
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
     complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
