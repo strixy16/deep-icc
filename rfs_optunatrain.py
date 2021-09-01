@@ -37,7 +37,7 @@ parser.add_argument('--kfold_num', default=5, type=int, help='If using k-fold cr
 parser.add_argument('--verbose', default=1, type=int, help='Levels of output: 0: none, 1: training output')
 parser.add_argument('--plots', default=True, type=bool, help='Save plots of evaluation values over model training')
 
-
+os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 
 
 def define_resnet(trial, resnet_type):
@@ -52,11 +52,11 @@ def define_resnet(trial, resnet_type):
         model: ResNet nn.Module, model constructed with parameters from Optuna
     """
     # Number of nodes for last two fully connected layers before output
-    l2 = trial.suggest_int("l2", 4, 512)
+    l2 = trial.suggest_int("l2", 290, 512)
     l3 = trial.suggest_int("l3", 4, 512)
 
     # Dropout values
-    d1 = trial.suggest_float("d1", 0.2, 0.7)
+    d1 = trial.suggest_float("d1", 0.2, 0.5)
     d2 = trial.suggest_float("d2", 0.2, 0.7)
 
     model = ResNet(resnet_type, l2, l3, d1, d2)
@@ -121,11 +121,12 @@ def objective(trial):
 
     # Setting up training hyperparameters
     optimizer_name = trial.suggest_categorical("optimizer", ["Adam", "SGD"])
-    lr = trial.suggest_float("lr", 1e-5, 1e-1, log=True)
+    lr = trial.suggest_float("lr", 1e-5, 1e-3, log=True)
     optimizer = getattr(optim, optimizer_name)(model.parameters(), lr=lr)
     criterion = NegativeLogLikelihood(device)
 
-    print("")
+    print("Trial:", trial.number)
+    print("Parameters:", trial.params)
     # Model training
     for epoch in range(args.epochs):
         # Initialize value holders for loss, c-index, and var values
@@ -204,9 +205,7 @@ def objective(trial):
 
 
 if __name__ == "__main__":
-    global args, device, CUDA_LAUNCH_BLOCKING
-
-    CUDA_LAUNCH_BLOCKING = 1
+    global args, device
 
     # Utilize GPUs for Tensor computations if available
     # device = torch.device("cpu")
