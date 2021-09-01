@@ -142,6 +142,55 @@ class ResNet(nn.Module):
         out = self.layercph(out)
         return out
 
+class CholClassifier(nn.Module):
+    def __init__(self, resnet_type, covariates, l2=256, l3=128, d1=0, d2=0, d3=0.375):
+        super(CholClassifier).__init__()
+        res_model = ''
+        if resnet_type == '18':
+            res_model = models.resnet18(pretrained=True)
+        elif resnet_type == '34':
+            res_model = models.resnet34(pretrained=True)
+
+        # Setup all resnet layers except final FC layer
+        self.res = nn.Sequential(*(list(res_model.children())[:-1]))
+        for param in self.res.parameters():
+            param.requires_grad = False
+
+        # Replace final linear layer with this one
+        self.ct = nn.Sequential(
+            # This has to be 512 because that's the output from the resnet18 and 34 models
+            nn.Linear(512, l2),
+            nn.ReLU(),
+            nn.BatchNorm1d(l2),
+            nn.Dropout(d1),
+            nn.Linear(l2, l3),
+            nn.ReLU(),
+        )
+
+        self.gene = nn.Sequential(
+            nn.Linear(covariates, 4),
+            nn.BatchNorm1d(4),
+            nn.SELU(),
+            nn.Dropout(d3),
+            nn.Linear(4, 4),
+            nn.BatchNorm1d(4),
+            nn.SELU()
+        )
+
+        self.final = nn.Linear(l3 + 4, 1)
+
+    def forward(self, img, gene):
+        img = self.res(img)
+        img = img.view(img.size(0), 1)
+        img = self.ct(img)
+
+        gene = self.gene(gene)
+
+        x = torch.cat((img, gene), dim=1)
+        x = nn.SELU(x)
+
+        return self.final(x)
+
 
 class NegativeLogLikelihood(nn.Module):
     """Negative log likelihood loss function from Katzman et al. (2018) DeepSurv model (equation 4)"""
