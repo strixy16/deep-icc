@@ -6,10 +6,12 @@
 
 
 import numpy as np
+import os
+import pandas as pd
 from scipy import ndimage
 from sklearn.model_selection import KFold
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 
 
 class CTSurvDataset(Dataset):
@@ -53,6 +55,48 @@ class CTSurvDataset(Dataset):
 
     def __len__(self):
         return len(self.event)
+
+
+def load_chol_tumor(data_dir="../Data/", imdim=256, scanthresh=300, split=0.8, batch_size=32, seed=16):
+    """
+    Setting up data loading for cholangio tumour images and labels
+
+    Args:
+        data_dir: string, path to Data directory containing Images and Labels
+        imdim: int, size of image to load
+        scanthresh: int, threshold for removeSmallScans (number of tumour pixels required)
+        split: float, value for hold out validation, size of train set
+        batch_size: int, number of samples per batch
+        seed: int, random seed value
+
+    Returns:
+        train_loader: DataLoader for train set
+        test_loader: DataLoader for test set
+    """
+    # Get paths to images and labels
+    info_path = os.path.join(data_dir, 'Labels', str(imdim),'RFS_all_tumors_zero.csv')
+    z_img_path = os.path.join(data_dir, 'Images/Tumors', str(imdim), 'Zero/')
+
+    info = pd.read_csv(info_path)
+
+    # Filter scans with mostly background in the image
+    filtered_indices = removeSmallScans(info, z_img_path, imdim, scanthresh)
+    filtered_info = info.iloc[filtered_indices]
+
+    patnum = np.asarray(filtered_info['Pat_ID'])
+    event = np.asarray(filtered_info['RFS_Code'])
+
+    # Split data into train and validation sets
+    train_idx, test_idx = pat_train_test_split(patnum, event, split, seed=seed)
+
+    # Set up data with custom Dataset class (in rfs_utils)
+    train_dataset = CTSurvDataset(filtered_info, z_img_path, train_idx, imdim)
+    test_dataset = CTSurvDataset(filtered_info, z_img_path, test_idx, imdim)
+
+    train_loader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size) # ,drop_last=True)
+    test_loader = DataLoader(test_dataset, shuffle=True, batch_size=batch_size, drop_last=True)
+
+    return train_loader, test_loader
 
 
 def pat_train_test_split(pat_num, label, split_perc, seed=16):
