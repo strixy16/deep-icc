@@ -17,8 +17,8 @@ from rfs_utils import *
 from rfs_models import *
 
 parser = argparse.ArgumentParser(description='Training variables:')
-parser.add_argument('--batchsize', default=16, type=int, help='Number of samples used for each training cycle')
-parser.add_argument('--epochs', default=100, type=int, help='Number of training epochs to run')
+parser.add_argument('--batchsize', default=32, type=int, help='Number of samples used for each training cycle')
+parser.add_argument('--epochs', default=10, type=int, help='Number of training epochs to run')
 parser.add_argument('--imdim', default=256, type=int, help='Dimension of image to load')
 parser.add_argument('--learnrate', default=3e-3, type=float, help='Starting learning rate for training')
 parser.add_argument('--modelname', default='Resnet18', type=str, help='Name of model type to build and train. '
@@ -238,7 +238,6 @@ def train(model, epochs, optimizer, criterion, train_loader, val_loader, save_ev
     if plots:
         saveplot_coxloss(save_eval_fname, model._get_name())
         saveplot_concordance(save_eval_fname, model._get_name())
-
 
 
 if __name__ == '__main__':
