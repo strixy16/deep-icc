@@ -166,6 +166,8 @@ def objective(trial):
             train_c = c_index(risk_pred, y, e)
             ciMeter.update(train_c.item(), y.size(0))
 
+        torch.cuda.empty_cache()
+
         # VALIDATION
         model.eval()
         ciValMeter = AverageMeter()
