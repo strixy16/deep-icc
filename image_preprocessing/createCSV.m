@@ -1,7 +1,7 @@
 function createCSV(conf_f, background)
 % Name: createCSV
-% Description: Function to generate CSV file to correspond patients with images and
-% slices from preprocessMHA
+% Description: Function to generate CSV file to correspond patients with 
+% images and slices from preprocessMHA
 %
 % INPUT: 
 %   conf_f       -- configuration file for different datasets
@@ -12,20 +12,9 @@ function createCSV(conf_f, background)
 %   slice number, and labels from conf_f Labels file
 %
 % Environment: MATLAB R2020b
-% Author: Travis Williams
-% Updated by: Katy Scott
-% Notes: 
-%   Feb 6, 2021 - added function description and more commenting
-%               - added conf_f input to use configuration files
-%   Feb 15/16 2021 - added more commenting
-%                  - changed some variable names to be more readable
-%                  - replaced excelfile and output_fname with configure
-%   Mar 1, 2021 - updated to include all label columns in options.Labels in
-%                 output
-%               - changed CSV header to be a variable in conf_f
-%   Mar 31, 2021 - added having a specific directory for label CSV with
-%                  different image sizes
-
+% Author: Katy Scott
+% Adapted from code written by Travis Williams
+    
     % Getting variables from configuration file
     if ischar(conf_f)
         conf_f = str2func(conf_f);
@@ -56,92 +45,65 @@ function createCSV(conf_f, background)
             mkdir(zero_dir);
         end
     end
-        
+    
     % Get list of all bin files
     bin_files = dir(fullfile(bin_dir, '*.bin'));
     % Have folder as structure, change to table for stuff later on
-    tfiles_allinfo = struct2table(bin_files);
+    imgfiles_allinfo = struct2table(bin_files);
     % Extract file names and sort names alphanumerically, now a cell array
-    tfiles = natsort(tfiles_allinfo{:,'name'});
-    % List of original slice file names 
-    otfiles = tfiles;
-    % For storing unique slice file names - list of patients, repeated # of times
-    % there are slices for that patient
-    utfiles = tfiles;
-
-    % Parsing through filename to get slice index
-    % Every unique name becomes a number 
-    for i=1:length(tfiles)
-        % Index where .bin starts in filename i
-        bidx = strfind(tfiles{i},'.bin');
-        % Underscore index
-        uidx = strfind(tfiles{i},'_');
-        % Getting last index of file name without _Tumor_Slice_#.bin
-        nidx = uidx(end-2);
-        % Extract patient label out of file name
-        utfiles{i}(nidx:end) = '';
-        % Get just slice number
-        tfiles{i}(bidx:end) = '';
-        tfiles{i}(1:uidx(end)) = '';
+    imgfilenames = natsort(imgfiles_allinfo{:,'name'});
+    
+    % Load in patient label data as a table
+    img_labels = readtable(options.Labels);
+    % Add an underscore to the end of the ScoutIDs so that a file name that
+    % ends in 5 is different from one that ends in 50 for substring use
+    mod_patientnames = strcat(img_labels.ScoutID, '_');
+    
+    % Find indices of slices from labelled patients
+    labelled_idx = contains(imgfilenames, mod_patientnames);
+    % Filter out slices of patients without labels
+    labelled_imgfilenames = imgfilenames(labelled_idx);
+    
+    % TODO: figure out how to get labels aligned with the correct patient
+    % Need to find number of slices for each patient
+    % Going to just put this all in a single for loop instead
+    
+    patient_all_data = cell2table(cell(0,5), 'VariableNames', options.CSV_header);
+    
+    for label_idx=1:size(img_labels,1)
+        % Get patient ID from label data
+        patient_ID = img_labels.ScoutID(label_idx);
+        patient_ID = strcat(patient_ID, '_');
+        
+        % Find indices of slice files containing that patient ID
+        labelled_patient_slice_idx = contains(imgfilenames, patient_ID);
+        
+        % Get the full image file names of labelled slices
+        labelled_imgfilenames = imgfilenames(labelled_patient_slice_idx);
+        
+        % Count how many slices exist for this patient
+        num_slices = size(labelled_imgfilenames,1);
+        
+        % Put these into a table
+        % Copy the RFS and RFS Code for each row that has this patient ID
+        
+        % Get the RFS labels for the current patient
+        patient_RFS_Code = img_labels.RFS_Code(label_idx);
+        patient_RFS = img_labels.RFS(label_idx);
+        
+        % Create cell arrays with the labels repeated for each slice
+        slices_pat_num = num2cell(ones(num_slices,1) * label_idx);
+        slices_slice_num = num2cell((1:num_slices)');
+        slices_RFS_Code = num2cell(round(ones(num_slices,1) * patient_RFS_Code, 1));
+        slices_RFS = num2cell(round(ones(num_slices,1) * patient_RFS, 1));
+        
+        % Concatenate the slice file names, corresponding labels, and add
+        % it to the table to be output at the end
+        patient_all_data = [patient_all_data; 
+                            labelled_imgfilenames, slices_pat_num, slices_slice_num, slices_RFS_Code, slices_RFS];
     end
-    % Get unique file names without resorting (need order to correspond
-    % back to slices)
-    % slice2pat connects slices back to patients
-    [ut,~,slice2pat] = unique(utfiles, 'stable');
-    % Get number of slices for each patient
-    num_slices_per_pat = hist(slice2pat,unique(slice2pat));
-
-    % Read in label spreadsheet 
-    % if replace ~ get raw excel file as a cell array
-    % num will capture both columns of numbers of RFS 
-    % num = [RFS codes (1 or 0), RFS time (months?)]
-    % txt = [header; patient_ids empty empty]
-    [num,txt,~] = xlsread(options.Labels) ;
-
-    % get just the patient ids from label spreadsheet
-    pats_with_labels = txt(2:end,1);
-    % match up these names with the unique patient ids that we have slices
-    % for
-    [~, ut_idx, pwl_idx] = intersect(ut, pats_with_labels);
-    asc_num = (1:length(ut))';
-    % finding which indices do/don't have label
-    loc = ismember(asc_num, ut_idx);
-    % patient index with no label in the slice list
-    % nolabel_patient
-    nl_patient = find(loc==0);
-
-    % Finding slice indices with no label to drop from output
-    % nolabel_slices
-    nl_slices = [];
-    for i=1:length(nl_patient)
-        % nl_patient contains what patient index the slices belong to
-        % zidx is patient indices with no labels
-        nl_pat_slice_idx = find(slice2pat==nl_patient(i));
-        nl_slices = [nl_slices; nl_pat_slice_idx];
-    end
-
-    % Removing files with no label from 
-    % Slice file name list, slice2pat index, and slices matrix
-    otfiles(nl_slices) = [];
-    slice2pat(nl_slices) = [];
-    tfiles(nl_slices) = [];
-
-    % get rows from label spreadsheet for the corresponding patients in ut
-    % rfs code for patients with a confirmed label
-    rl_patient = num(pwl_idx,:);
-    % withlabel_slices
-    lbl_4_slices = [];
-
-    for i=1:length(rl_patient)
-        recurrence_lbl_for_slices = rl_patient(i,:)' .* ones(size(num,2),num_slices_per_pat(ut_idx(i)));
-%         time_lbl_for_slices = num(ut_idx(i),2) * ones(1,num_slices_per_pat(ut_idx(i)));
-        lbl_4_slices = [lbl_4_slices; recurrence_lbl_for_slices'];
-%         time_labels = [time_labels; time_lbl_for_slices'];
-    end
-
-    % Setting up and outputing CSV file
-    header = options.CSV_header;
-%     header = {'File', 'ID', 'Slice', options.LabelType};
-    data = [cellstr(otfiles), num2cell(slice2pat), cellstr(tfiles), num2cell(lbl_4_slices(:,1)), num2cell(lbl_4_slices(:,2))];
-    writetable(cell2table([header;data]),output_fname,'writevariablenames',0)
+    
+    writetable(patient_all_data, output_fname, 'writevariablenames', 1);
+    
+    
 end
