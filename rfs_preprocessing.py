@@ -18,7 +18,7 @@ class CTSurvDataset(Dataset):
 
     def __init__(self, info, img_path, idx, img_dim):
         """Initialize CTSurvDataset class
-        Dataset for CT images used in survival prediction
+        Dataset for labelled CT images used in survival prediction
 
         Args:
             info: pandas.Dataframe, read from CSV, contains image file names, patient ID, slice ID, and RFS time and event labels
@@ -55,6 +55,51 @@ class CTSurvDataset(Dataset):
 
     def __len__(self):
         return len(self.event)
+
+
+class CTGeneDataset(Dataset):
+
+    def __init__(self, info, img_path, idx, img_dim):
+        """
+        Initialize CTGeneDataset class
+        Dataset for labelled CT images and corresponding genetic data used in survival prediction
+
+        Args:
+            info: pandas.Dataframe, read from CSV, contains image file names, patient ID, slice ID, RFS time and event
+                  labels, and binary genetic markers
+                  Column titles should be: File, Pat ID, Slice Num, RFS Code, RFS Time, and gene names
+            img_path: string, path to folder containing image files listed in info
+            idx: list, indices to include in this dataset (ex. indices of training data)
+            img_dim: int, dimension of images
+        """
+        self.info = info.iloc[idx, :]
+        self.fname = np.asarray(self.info['File'])
+        self.patid = np.asarray(self.info['Pat_ID'])
+        self.slice = np.asarray(self.info['Slice_Num'])
+        self.event = np.asarray(self.info['RFS_Code'])
+        self.time = np.asarray(self.info['RFS_Time'])
+
+        self.img_path = img_path
+        self.dim = img_dim
+
+        # Find index of first gene in info
+        gene_start = self.info.columns.get_loc('RFS_Time') + 1
+        self.genes = np.asarray(self.info.iloc[:, gene_start:-1])
+
+    def __getitem__(self, index):
+        e_tensor = torch.Tensor([self.event[index]]).int()
+        t_tensor = torch.Tensor([self.time[index]])
+
+        # Load in CT bin image as numpy array
+        img = np.fromfile(self.img_path + self.fname[index])
+        # Reshape to a 3D array (channels, height, width)
+        img = np.reshape(img, (1, self.dim, self.dim))
+
+        X_tensor = torch.from_numpy(img)
+
+        g_tensor = torch.from_numpy(self.genes)
+
+        return X_tensor, g_tensor, t_tensor, e_tensor
 
 
 def load_chol_tumor(data_dir="../Data/", imdim=256, scanthresh=300, split=0.8, batch_size=32, seed=16):
@@ -99,21 +144,28 @@ def load_chol_tumor(data_dir="../Data/", imdim=256, scanthresh=300, split=0.8, b
     return train_loader, test_loader
 
 
-def pat_train_test_split(pat_num, label, split_perc, seed=16):
+def pat_train_test_split(pat_num, label, split_perc=0.1, valid=0, valid_split_perc=0.2, seed=16):
     """
     Function to split data into training and testing, keeping slices from one patient in one class
     Args:
         pat_num - numpy array of patient numbers or ids to be split
         label - numpy array of binary labels for the data, indicating recurrence or non-recurrence (censoring)
         split_perc - float value, between 0 and 1, percentage of data to put in training set, 1 - split_perc will be the testing size
+        valid - boolean, whether to make a validation set or not
+        valid_split_perc - float value, between 0 and 1, percentage of data to put in validation set, will be taken out of training set
         seed - seed for patient index shuffling
     Returns:
-        sets - tuple of training and testing slice indices in a list
+        sets - tuple of training and testing slice indices in a list (and validation if valid = 1)
     """
     # Checking that split percentage is between 0 and 1 to print better error message
     if split_perc > 1.0 or split_perc < 0.0:
         print("Invalid split percentage. Must be between 0 and 1.")
         return -1
+
+    if valid:
+        if valid_split_perc > 1.0 or valid_split_perc < 0.0:
+            print("Invalid validation split percentage. Must be between 0 and 1.")
+            return -1
 
     # Separate out positive and negative labels to evenly distribute them between classes
     # Get index of slices with 0 and 1 label
@@ -147,6 +199,17 @@ def pat_train_test_split(pat_num, label, split_perc, seed=16):
     test_z_pat = uz_pats[split_z:]
     test_o_pat = uo_pats[split_o:]
 
+    if valid == 1:
+        split_tr_z = int(valid_split_perc * len(train_z_pat))
+        split_tr_o = int(valid_split_perc * len(train_o_pat))
+
+        valid_z_pat = train_z_pat[:split_tr_z]
+        valid_o_pat = train_o_pat[:split_tr_o]
+
+        train_z_pat = train_z_pat[split_tr_z:]
+        train_o_pat = train_o_pat[split_tr_o:]
+
+
     # Training slice set for censored patients (rfs_code = 0)
     train_z_slice = []
     for pat in train_z_pat:
@@ -179,12 +242,36 @@ def pat_train_test_split(pat_num, label, split_perc, seed=16):
             ts_slice_o = np.expand_dims(ts_slice_o, axis=0)
         test_o_slice = np.concatenate((test_o_slice, ts_slice_o))
 
+    if valid:
+        # Validation slice set for censored patients (rfs_code = 0)
+        valid_z_slice = []
+        for pat in valid_z_pat:
+            vl_slice_z = np.asarray(np.where(pat_num == pat)).squeeze()
+            if len(vl_slice_z.shape) == 0:
+                vl_slice_z = np.expand_dims(vl_slice_z, axis=0)
+            valid_z_slice = np.concatenate((valid_z_slice, vl_slice_z))
+
+        # Validation slice set for non-censored patients
+        valid_o_slice = []
+        for pat in valid_o_pat:
+            vl_slice_o = np.asarray(np.where(pat_num == pat)).squeeze()
+            if len(vl_slice_o.shape) == 0:
+                vl_slice_o = np.expand_dims(vl_slice_o, axis=0)
+            valid_o_slice = np.concatenate((valid_o_slice, vl_slice_o))
+
+        valid_slice = np.concatenate((valid_z_slice, valid_o_slice)).astype(int)
+
     # Combine censored and non-censored slice sets
     train_slice = np.concatenate((train_z_slice, train_o_slice)).astype(int)
     test_slice = np.concatenate((test_z_slice, test_o_slice)).astype(int)
 
-    # Tuple of indices for training and testing slices
-    sets = (train_slice, test_slice)
+    if valid:
+        # Tuples of indices for training, validation, and testing slices
+        sets = (train_slice, valid_slice, test_slice)
+    else:
+        # Tuple of indices for training and testing slices
+        sets = (train_slice, test_slice)
+
     return sets
 
 
