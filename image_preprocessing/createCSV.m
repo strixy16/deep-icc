@@ -59,15 +59,7 @@ function createCSV(conf_f, background)
     % ends in 5 is different from one that ends in 50 for substring use
     mod_patientnames = strcat(img_labels.ScoutID, '_');
     
-    % Find indices of slices from labelled patients
-    labelled_idx = contains(imgfilenames, mod_patientnames);
-    % Filter out slices of patients without labels
-    labelled_imgfilenames = imgfilenames(labelled_idx);
-    
-    % TODO: figure out how to get labels aligned with the correct patient
-    % Need to find number of slices for each patient
-    % Going to just put this all in a single for loop instead
-    
+   
     patient_all_data = cell2table(cell(0,5), 'VariableNames', options.CSV_header);
     
     for label_idx=1:size(img_labels,1)
