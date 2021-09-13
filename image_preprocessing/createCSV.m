@@ -55,16 +55,15 @@ function createCSV(conf_f, background)
     
     % Load in patient label data as a table
     img_labels = readtable(options.Labels);
-    % Add an underscore to the end of the ScoutIDs so that a file name that
-    % ends in 5 is different from one that ends in 50 for substring use
-    mod_patientnames = strcat(img_labels.ScoutID, '_');
-    
    
+    % Initialize table to patient data
     patient_all_data = cell2table(cell(0,5), 'VariableNames', options.CSV_header);
     
     for label_idx=1:size(img_labels,1)
         % Get patient ID from label data
         patient_ID = img_labels.ScoutID(label_idx);
+        % Add an underscore to the end of the ScoutIDs so that a file name 
+        % that ends in 5 is different from one that ends in 50 for substring use
         patient_ID = strcat(patient_ID, '_');
         
         % Find indices of slice files containing that patient ID
