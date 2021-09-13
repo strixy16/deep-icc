@@ -31,7 +31,7 @@ parser.add_argument('--scanthresh', default=300, type=int, help='Threshold for n
                                                                 ' through')
 parser.add_argument('--validation', default=0, type=int, help='Select validation method from list: '
                                                               '0: hold out, 1: k-fold')
-parser.add_argument('--split', default=0.8, type=float, help='Fraction of data to use for training (ex. 0.8) with'
+parser.add_argument('--split', default=0.9, type=float, help='Fraction of data to use for training (ex. 0.8) with'
                                                              'hold-out validation')
 parser.add_argument('--kfold_num', default=5, type=int, help='If using k-fold cross validation, supply k value')
 parser.add_argument('--verbose', default=1, type=int, help='Levels of output: 0: none, 1: training output')
@@ -46,6 +46,7 @@ def main():
 
     args = parser.parse_args()
 
+    # Setup output directory to save parameters/results/etc.
     out_dir = 'Output/' + str(args.modelname) + '-' + datetime.now().strftime("%Y-%m-%d-%H%M")
     out_path = os.path.join(args.datadir, out_dir)
 
@@ -53,21 +54,47 @@ def main():
     if not os.path.exists(out_path):
         os.makedirs(out_path)
 
-    # Save out parameters use for the run
+    # Save out parameters used for the run
     save_param_fname = os.path.join(out_path, 'parameters.txt')
     with open(save_param_fname, 'w') as f:
         json.dump(args.__dict__, f, indent=2)
 
     # DATA LOADING
     # Load in gene features
-    genefeat_fname = os.path.join(args.datadir, 'MSK_Genomic_Data.csv')
-    genefeat = pd.read_csv(genefeat_fname)
-    # Removing space at the end of the Patient ID names
-    genefeat['ScoutID'] = genefeat['ScoutID'].str.strip()
-    # Fixing columns with illegal characters in the name
-    genefeat.rename(columns={'CDKN2A.DEL': 'CDKN2A_DEL', 'TGF-Beta_Pathway': 'TGF_Beta_Pathway'}, inplace=True)
+    # genefeat_fname = os.path.join(args.datadir, 'MSK_Genomic_Data.csv')
+    # genefeat = pd.read_csv(genefeat_fname)
+    # # Removing space at the end of the Patient ID names
+    # genefeat['ScoutID'] = genefeat['ScoutID'].str.strip()
+    # # Fixing columns with illegal characters in the name
+    # genefeat.rename(columns={'CDKN2A.DEL': 'CDKN2A_DEL', 'TGF-Beta_Pathway': 'TGF_Beta_Pathway'}, inplace=True)
 
     # Get number of covariates = number of genetic columns
-    args.covariates = genefeat.shape[1] - 1
+    # args.covariates = genefeat.shape[1] - 1
 
+    #
+    # info_path = 'Labels/' + str(args.imdim) + '/RFS_gene_tumors_zero.csv'
+    # info_path = os.path.join(args.datadir, info_path)
+    # info = pd.read_csv(info_path)
+    # # Fixing columns with illegal characters in the name
+    # info.rename(columns={'CDKN2A.DEL': 'CDKN2A_DEL', 'TGF-Beta_Pathway': 'TGF_Beta_Pathway'}, inplace=True)
+    #
+    # z_img_path = 'Images/Tumors/' + str(args.imdim) + '/Zero/'
+    # z_img_path = os.path.join(args.datadir, z_img_path)
+    #
+    # patnum = np.asarray(info['Pat_ID'])
+    # event = np.asarray(info['RFS_Code'])
+    #
+    # train_idx, valid_idx, test_idx = pat_train_test_split(patnum, event, args.split,
+    #                                                       valid=True, valid_split_perc=0.2,
+    #                                                       seed=args.randseed)
+    #
+    # train_dataset = CTGeneDataset(info, z_img_path, train_idx, args.imdim)
+    # valid_dataset = CTGeneDataset(info, z_img_path, valid_idx, args.imdim)
+    # test_dataset = CTGeneDataset(info, z_img_path, test_idx, args.imdim)
 
+    train_loader, valid_loader, test_loader = load_chol_tumor_w_gene(args.datadir, split=args.split, valid=True)
+
+    print("Pause here")
+
+if __name__ == '__main__':
+    main()
