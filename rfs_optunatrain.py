@@ -134,71 +134,74 @@ def objective(trial):
         ciMeter = AverageMeter()
         varMeter = AverageMeter()
 
-        model.train()
-        for X, y, e in train_loader:
-            # Resnet models expect an RGB image - generate a 3 channel version of CT image here
-            if isinstance(model, ResNet):
-                # Convert grayscale image to rgb to generate 3 channels
-                rgb_X = gray2rgb(X)
-                # Reshape so channels is second value
-                rgb_X = torch.from_numpy(rgb_X)
-                X = torch.reshape(rgb_X, (rgb_X.shape[0], rgb_X.shape[-1], rgb_X.shape[2], rgb_X.shape[3]))
+        try:
+            model.train()
+            for X, y, e in train_loader:
+                # Resnet models expect an RGB image - generate a 3 channel version of CT image here
+                if isinstance(model, ResNet):
+                    # Convert grayscale image to rgb to generate 3 channels
+                    rgb_X = gray2rgb(X)
+                    # Reshape so channels is second value
+                    rgb_X = torch.from_numpy(rgb_X)
+                    X = torch.reshape(rgb_X, (rgb_X.shape[0], rgb_X.shape[-1], rgb_X.shape[2], rgb_X.shape[3]))
 
-            X, y, e = X.float().to(device), y.to(device), e.to(device)
+                X, y, e = X.float().to(device), y.to(device), e.to(device)
 
-            risk_pred = model(X)
-            # Calculate loss
-            cox_loss = criterion(-risk_pred, y, e, model)
-            train_loss = cox_loss
+                risk_pred = model(X)
+                # Calculate loss
+                cox_loss = criterion(-risk_pred, y, e, model)
+                train_loss = cox_loss
 
-            optimizer.zero_grad()
-            train_loss.backward()
-            optimizer.step()
+                optimizer.zero_grad()
+                train_loss.backward()
+                optimizer.step()
 
-            coxLossMeter.update(cox_loss.item(), y.size(0))
-            varMeter.update(risk_pred.var(), y.size(0))
+                coxLossMeter.update(cox_loss.item(), y.size(0))
+                varMeter.update(risk_pred.var(), y.size(0))
 
-            if torch.isnan(risk_pred).any() or torch.isnan(y).any() or torch.isnan(e).any():
-                print(risk_pred[0])
-                print("Got NaNs in risk_pred. Pruning this trial.")
-                raise optuna.exceptions.TrialPruned()
+                if torch.isnan(risk_pred).any() or torch.isnan(y).any() or torch.isnan(e).any():
+                    print(risk_pred[0])
+                    print("Got NaNs in risk_pred. Pruning this trial.")
+                    raise optuna.exceptions.TrialPruned()
 
-            train_c = c_index(risk_pred, y, e)
-            ciMeter.update(train_c.item(), y.size(0))
+                train_c = c_index(risk_pred, y, e)
+                ciMeter.update(train_c.item(), y.size(0))
 
-        torch.cuda.empty_cache()
+            # torch.cuda.empty_cache()
 
-        # VALIDATION
-        model.eval()
-        ciValMeter = AverageMeter()
-        for val_X, val_y, val_e in val_loader:
-            # Resnet models expect an RGB image - generate a 3 channel version of CT image here
-            if isinstance(model, ResNet):
-                # Convert grayscale image to rgb to generate 3 channels
-                rgb_valX = gray2rgb(val_X)
-                # Reshape so channels is second value
-                rgb_valX = torch.from_numpy(rgb_valX)
-                val_X = torch.reshape(rgb_valX, (rgb_valX.shape[0], rgb_valX.shape[-1], rgb_valX.shape[2], rgb_valX.shape[3]))
+            # VALIDATION
+            model.eval()
+            ciValMeter = AverageMeter()
+            for val_X, val_y, val_e in val_loader:
+                # Resnet models expect an RGB image - generate a 3 channel version of CT image here
+                if isinstance(model, ResNet):
+                    # Convert grayscale image to rgb to generate 3 channels
+                    rgb_valX = gray2rgb(val_X)
+                    # Reshape so channels is second value
+                    rgb_valX = torch.from_numpy(rgb_valX)
+                    val_X = torch.reshape(rgb_valX, (rgb_valX.shape[0], rgb_valX.shape[-1], rgb_valX.shape[2], rgb_valX.shape[3]))
 
-            val_X, val_y, val_e = val_X.float().to(device), val_y.to(device), val_e.to(device)
+                val_X, val_y, val_e = val_X.float().to(device), val_y.to(device), val_e.to(device)
 
-            val_riskpred = model(val_X)
-            val_cox_loss = criterion(-val_riskpred, val_y, val_e, model)
+                val_riskpred = model(val_X)
+                val_cox_loss = criterion(-val_riskpred, val_y, val_e, model)
 
-            if torch.isnan(val_riskpred).any() or torch.isnan(val_y).any() or torch.isnan(val_e).any():
-                print(val_riskpred[0])
-                print("Got NaNs in val_riskpred. Pruning this trial.")
-                raise optuna.exceptions.TrialPruned()
+                if torch.isnan(val_riskpred).any() or torch.isnan(val_y).any() or torch.isnan(val_e).any():
+                    print(val_riskpred[0])
+                    print("Got NaNs in val_riskpred. Pruning this trial.")
+                    raise optuna.exceptions.TrialPruned()
 
-            val_c = c_index(val_riskpred, val_y, val_e)
-            ciValMeter.update(val_c.item(), val_y.size(0))
+                val_c = c_index(val_riskpred, val_y, val_e)
+                ciValMeter.update(val_c.item(), val_y.size(0))
 
+        except RuntimeError:
+            print("Illegal memory access was encountered")
         # print('Epoch: {} \t Train Loss: {:.4f} \t Train CI: {:.3f} \t Val CI: {:.3f}'.format(epoch, coxLossMeter.avg,
         #                                                                                      ciMeter.avg,
         #                                                                                      ciValMeter.avg))
         trial.report(val_c, epoch)
 
-        torch.cuda.empty_cache()
+        # torch.cuda.empty_cache()
         # Handle pruning based on the intermediate value
         if trial.should_prune():
             raise optuna.exceptions.TrialPruned()
