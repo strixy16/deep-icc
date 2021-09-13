@@ -84,7 +84,8 @@ class CTGeneDataset(Dataset):
 
         # Find index of first gene in info
         gene_start = self.info.columns.get_loc('RFS_Time') + 1
-        self.genes = np.asarray(self.info.iloc[:, gene_start:-1])
+        self.genes = np.asarray(self.info.iloc[:, gene_start:])
+        self.num_genes = self.genes.shape[1]
 
     def __getitem__(self, index):
         e_tensor = torch.Tensor([self.event[index]]).int()
@@ -97,7 +98,7 @@ class CTGeneDataset(Dataset):
 
         X_tensor = torch.from_numpy(img)
 
-        g_tensor = torch.from_numpy(self.genes)
+        g_tensor = torch.from_numpy(self.genes[index])
 
         return X_tensor, g_tensor, t_tensor, e_tensor
 

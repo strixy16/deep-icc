@@ -22,10 +22,9 @@ parser.add_argument('--datadir', default='/media/katy/Data/ICC/Data', type=str, 
                                                                                      'and output will be saved.')
 parser.add_argument('--epochs', default=100, type=int, help='Number of training epochs to run')
 parser.add_argument('--imdim', default=256, type=int, help='Dimension of image to load')
-# parser.add_argument('--learnrate', default=3e-3, type=float, help='Starting learning rate for training')
-parser.add_argument('--modelname', default='Resnet18', type=str, help='Name of model type to build and train. '
-                                                                       'Current options are KT6Model, DeepConvSurv'
-                                                                        'Resnet18 and Resnet34')
+parser.add_argument('--learnrate', default=3e-3, type=float, help='Starting learning rate for training')
+parser.add_argument('--modelname', default='Resnet18', type=str, help='Name of model type to use for CNN half of model.'
+                                                                       'Current options are Resnet18 and Resnet34')
 parser.add_argument('--randseed', default=16, type=int, help='Random seed for reproducibility')
 parser.add_argument('--scanthresh', default=300, type=int, help='Threshold for number of tumour pixels to filter images'
                                                                 ' through')
@@ -42,7 +41,8 @@ def main():
     global args, device
 
     # Utilize GPUs for Tensor computations if available
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = "cpu"
 
     args = parser.parse_args()
 
@@ -60,41 +60,70 @@ def main():
         json.dump(args.__dict__, f, indent=2)
 
     # DATA LOADING
-    # Load in gene features
-    # genefeat_fname = os.path.join(args.datadir, 'MSK_Genomic_Data.csv')
-    # genefeat = pd.read_csv(genefeat_fname)
-    # # Removing space at the end of the Patient ID names
-    # genefeat['ScoutID'] = genefeat['ScoutID'].str.strip()
-    # # Fixing columns with illegal characters in the name
-    # genefeat.rename(columns={'CDKN2A.DEL': 'CDKN2A_DEL', 'TGF-Beta_Pathway': 'TGF_Beta_Pathway'}, inplace=True)
-
-    # Get number of covariates = number of genetic columns
-    # args.covariates = genefeat.shape[1] - 1
-
-    #
-    # info_path = 'Labels/' + str(args.imdim) + '/RFS_gene_tumors_zero.csv'
-    # info_path = os.path.join(args.datadir, info_path)
-    # info = pd.read_csv(info_path)
-    # # Fixing columns with illegal characters in the name
-    # info.rename(columns={'CDKN2A.DEL': 'CDKN2A_DEL', 'TGF-Beta_Pathway': 'TGF_Beta_Pathway'}, inplace=True)
-    #
-    # z_img_path = 'Images/Tumors/' + str(args.imdim) + '/Zero/'
-    # z_img_path = os.path.join(args.datadir, z_img_path)
-    #
-    # patnum = np.asarray(info['Pat_ID'])
-    # event = np.asarray(info['RFS_Code'])
-    #
-    # train_idx, valid_idx, test_idx = pat_train_test_split(patnum, event, args.split,
-    #                                                       valid=True, valid_split_perc=0.2,
-    #                                                       seed=args.randseed)
-    #
-    # train_dataset = CTGeneDataset(info, z_img_path, train_idx, args.imdim)
-    # valid_dataset = CTGeneDataset(info, z_img_path, valid_idx, args.imdim)
-    # test_dataset = CTGeneDataset(info, z_img_path, test_idx, args.imdim)
-
+    # This does hold-out validation
     train_loader, valid_loader, test_loader = load_chol_tumor_w_gene(args.datadir, split=args.split, valid=True)
 
-    print("Pause here")
+    # MODEL SETUP
+    num_genes = train_loader.dataset.num_genes
+    if args.modelname == 'Resnet18':
+        model = CholClassifier('18', num_genes).to(device)
+    elif args.modelname == 'Resnet34':
+        model = CholClassifier('34', num_genes).to(device)
+    else:
+        print("Invalid model type name.")
+        return -1
+
+    # Define loss function and optimizer
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.learnrate)
+    criterion = NegativeLogLikelihood(device)
+
+    save_eval_fname = os.path.join(out_path, 'convergence.csv')
+
+
+    # Training
+
+    for epoch in range(0, args.epochs):
+        # Initialize value holders for loss, c-index, and var values
+        coxLossMeter = AverageMeter()
+        ciMeter = AverageMeter()
+        varMeter = AverageMeter()
+
+        model.train()
+        for X, g, y, e in train_loader:
+            # X = CT image
+            # g = genetic markers
+            # y = time to event
+            # e = event indicator
+
+            # Resnet models expect an RGB image - generate a 3 channel version of CT image here
+            if args.modelname == 'Resnet18' or args.modelname == 'Resnet34':
+                # Convert grayscale image to rgb to generate 3 channels
+                rgb_X = gray2rgb(X)
+                # Reshape so channels is second value
+                rgb_X = torch.from_numpy(rgb_X)
+                X = torch.reshape(rgb_X, (rgb_X.shape[0], rgb_X.shape[-1], rgb_X.shape[2], rgb_X.shape[3]))
+
+            X, g, y, e = X.float().to(device), g.to(device), y.float().to(device), e.float().to(device)
+
+            risk_pred = model(X, g)
+
+            cox_loss = criterion(-risk_pred, y, e, model)
+            train_loss = cox_loss
+
+            optimizer.zero_grad()
+            train_loss.backward()
+            optimizer.step()
+
+            coxLossMeter.update(cox_loss.item(), y.size(0))
+            varMeter.update(risk_pred.var(), y.size(0))
+            train_c = c_index(risk_pred, y, e)
+            ciMeter.update(train_c.item, y.size(0))
+
+            # Printing average loss and c-index values for the epoch
+            print(
+                'Epoch: {} \t Train Loss: {:.4f} \t Train CI: {:.3f}'.format(epoch, coxLossMeter.avg,
+                                                                                               ciMeter.avg))
+
 
 if __name__ == '__main__':
     main()
