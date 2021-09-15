@@ -103,7 +103,7 @@ def main():
                 rgb_X = torch.from_numpy(rgb_X)
                 X = torch.reshape(rgb_X, (rgb_X.shape[0], rgb_X.shape[-1], rgb_X.shape[2], rgb_X.shape[3]))
 
-            X, g, y, e = X.float().to(device), g.to(device), y.float().to(device), e.float().to(device)
+            X, g, y, e = X.float().to(device), g.float().to(device), y.float().to(device), e.float().to(device)
 
             risk_pred = model(X, g)
 
@@ -117,7 +117,7 @@ def main():
             coxLossMeter.update(cox_loss.item(), y.size(0))
             varMeter.update(risk_pred.var(), y.size(0))
             train_c = c_index(risk_pred, y, e)
-            ciMeter.update(train_c.item, y.size(0))
+            ciMeter.update(train_c.item(), y.size(0))
 
             # Printing average loss and c-index values for the epoch
             print(

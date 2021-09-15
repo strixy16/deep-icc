@@ -188,7 +188,7 @@ class CholClassifier(nn.Module):
         gene = self.gene(genes)
 
         x = torch.cat((img, gene), dim=1)
-        x = nn.SELU(x)
+        # x = nn.SELU(x)
 
         return self.final(x)
 
