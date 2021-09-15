@@ -20,7 +20,7 @@ parser.add_argument('--covariate', default=18, type=int, help='Number of genes f
 parser.add_argument('--datadir', default='/media/katy/Data/ICC/Data', type=str, help='Full path to the Data directory '
                                                                                      'where images, labels, are stored'
                                                                                      'and output will be saved.')
-parser.add_argument('--epochs', default=100, type=int, help='Number of training epochs to run')
+parser.add_argument('--epochs', default=10, type=int, help='Number of training epochs to run')
 parser.add_argument('--imdim', default=256, type=int, help='Dimension of image to load')
 parser.add_argument('--learnrate', default=3e-3, type=float, help='Starting learning rate for training')
 parser.add_argument('--modelname', default='Resnet18', type=str, help='Name of model type to use for CNN half of model.'
@@ -41,9 +41,9 @@ def main():
     global args, device
 
     # Utilize GPUs for Tensor computations if available
-    # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    device = "cpu"
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+    # Get input arguments (either from defaults or input when this function is called from terminal)
     args = parser.parse_args()
 
     # Setup output directory to save parameters/results/etc.
@@ -77,17 +77,17 @@ def main():
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learnrate)
     criterion = NegativeLogLikelihood(device)
 
+    # Setting up file to save out evaluation values to/load them from
     save_eval_fname = os.path.join(out_path, 'convergence.csv')
 
-
-    # Training
-
+    # Model Training
     for epoch in range(0, args.epochs):
         # Initialize value holders for loss, c-index, and var values
         coxLossMeter = AverageMeter()
         ciMeter = AverageMeter()
         varMeter = AverageMeter()
 
+        # Train
         model.train()
         for X, g, y, e in train_loader:
             # X = CT image
@@ -104,9 +104,9 @@ def main():
                 X = torch.reshape(rgb_X, (rgb_X.shape[0], rgb_X.shape[-1], rgb_X.shape[2], rgb_X.shape[3]))
 
             X, g, y, e = X.float().to(device), g.float().to(device), y.float().to(device), e.float().to(device)
-
+            # Pass image and gene to network
             risk_pred = model(X, g)
-
+            # Calculate loss
             cox_loss = criterion(-risk_pred, y, e, model)
             train_loss = cox_loss
 
@@ -114,15 +114,45 @@ def main():
             train_loss.backward()
             optimizer.step()
 
+            # Update loss and variance tracking
             coxLossMeter.update(cox_loss.item(), y.size(0))
             varMeter.update(risk_pred.var(), y.size(0))
             train_c = c_index(risk_pred, y, e)
             ciMeter.update(train_c.item(), y.size(0))
 
-            # Printing average loss and c-index values for the epoch
-            print(
-                'Epoch: {} \t Train Loss: {:.4f} \t Train CI: {:.3f}'.format(epoch, coxLossMeter.avg,
-                                                                                               ciMeter.avg))
+        # Validation
+        model.eval()
+        ciValMeter = AverageMeter()
+        for val_X, val_g, val_y, val_e in valid_loader:
+            # val_X = CT image
+            # val_g = genetic markers
+            # val_y = time to event
+            # val_e = event indicator
+
+            # Resnet models expect an RGB image - generate a 3 channel version of CT image here
+            if args.modelname == 'Resnet18' or args.modelname == 'Resnet34':
+                # Convert grayscale image to rgb to generate 3 channels
+                rgb_valX = gray2rgb(val_X)
+                # Reshape so channels is second value
+                rgb_valX = torch.from_numpy(rgb_valX)
+                val_X = torch.reshape(rgb_valX,
+                                      (rgb_valX.shape[0], rgb_valX.shape[-1], rgb_valX.shape[2], rgb_valX.shape[3]))
+
+            val_X, val_g, val_y, val_e = val_X.float().to(device), val_g.float().to(device), val_y.to(device), val_e.to(device)
+
+            val_risk_pred = model(val_X, val_g)
+            val_c = c_index(val_risk_pred, val_y, val_e)
+            ciValMeter.update(val_c.item(), val_y.size(0))
+
+        # Printing average loss and c-index values for the epoch
+        print(
+            'Epoch: {} \t Train Loss: {:.4f} \t Train CI: {:.3f} \t Val CI: {:.3f}'.format(epoch, coxLossMeter.avg, ciMeter.avg, ciValMeter.avg))
+        # Saving average results for this epoch
+        save_error(ciMeter.avg, ciValMeter.avg, coxLossMeter.avg, varMeter.avg, epoch, save_eval_fname)
+
+    if args.plots:
+        saveplot_coxloss(save_eval_fname, model._get_name())
+        saveplot_concordance(save_eval_fname, model._get_name())
 
 
 if __name__ == '__main__':
