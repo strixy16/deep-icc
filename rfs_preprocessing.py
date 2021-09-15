@@ -106,7 +106,7 @@ class CTGeneDataset(Dataset):
         return len(self.event)
 
 
-def load_chol_tumor(data_dir="../Data/", imdim=256, scanthresh=300, split=0.8, batch_size=32, valid=False, seed=16):
+def load_chol_tumor(data_dir="../Data/", imdim=256, scanthresh=300, split=0.8, batch_size=32, valid=False, valid_split=0.2, seed=16):
     """
     Setting up data loading for cholangio tumour images and labels
 
@@ -117,6 +117,7 @@ def load_chol_tumor(data_dir="../Data/", imdim=256, scanthresh=300, split=0.8, b
         split: float, value for hold out validation, size of train set
         batch_size: int, number of samples per batch
         valid: bool, whether to make a validation set or not
+        valid_split: float, value for hold out validation, size of validation set (percentage of training)
         seed: int, random seed value
 
     Returns:
@@ -140,7 +141,7 @@ def load_chol_tumor(data_dir="../Data/", imdim=256, scanthresh=300, split=0.8, b
     if valid:
         # Split data into train, validation, and test sets
         train_idx, valid_idx, test_idx = pat_train_test_split(patnum, event, split,
-                                                              valid=valid, valid_split_perc=0.2,
+                                                              valid=valid, valid_split_perc=valid_split,
                                                               seed=seed)
         # Set up data with custom Dataset class (in rfs_utils)
         train_dataset = CTSurvDataset(filtered_info, z_img_path, train_idx, imdim)
