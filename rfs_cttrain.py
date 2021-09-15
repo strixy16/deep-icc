@@ -1,7 +1,6 @@
 # Name: rfs_train.py
 # Environment: Python 3.9
 # Author: Katy Scott
-# Last updated: June 24, 2021
 # Main training file for RFS prediction model
 
 import argparse
