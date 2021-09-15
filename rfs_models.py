@@ -144,7 +144,7 @@ class ResNet(nn.Module):
 
 
 class CholClassifier(nn.Module):
-    def __init__(self, resnet_type, num_genes, l2=256, l3=128, d1=0, d2=0, d3=0.375):
+    def __init__(self, resnet_type, num_genes, l2=256, l3=128, d1=0.2, d2=0, d3=0.375):
         super(CholClassifier, self).__init__()
         res_model = ''
         if resnet_type == '18':
