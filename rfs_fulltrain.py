@@ -122,6 +122,7 @@ def main():
 
         # Validation
         model.eval()
+        valLossMeter = AverageMeter()
         ciValMeter = AverageMeter()
         for val_X, val_g, val_y, val_e in valid_loader:
             # val_X = CT image
@@ -141,14 +142,16 @@ def main():
             val_X, val_g, val_y, val_e = val_X.float().to(device), val_g.float().to(device), val_y.to(device), val_e.to(device)
 
             val_risk_pred = model(val_X, val_g)
+            val_cox_loss = criterion(-val_risk_pred, val_y, val_e, model)
             val_c = c_index(val_risk_pred, val_y, val_e)
+            valLossMeter.update(val_cox_loss.item(), y.size(0))
             ciValMeter.update(val_c.item(), val_y.size(0))
 
         # Printing average loss and c-index values for the epoch
-        print(
-            'Epoch: {} \t Train Loss: {:.4f} \t Train CI: {:.3f} \t Val CI: {:.3f}'.format(epoch, coxLossMeter.avg, ciMeter.avg, ciValMeter.avg))
+        print('Epoch: {} \t Train Loss: {:.4f} \t Val Loss: {:.4f} \t Train CI: {:.3f} \t Val CI: {:.3f}'.format(epoch,
+               coxLossMeter.avg, valLossMeter.avg, ciMeter.avg, ciValMeter.avg))
         # Saving average results for this epoch
-        save_error(ciMeter.avg, ciValMeter.avg, coxLossMeter.avg, varMeter.avg, epoch, save_eval_fname)
+        save_error(ciMeter.avg, ciValMeter.avg, coxLossMeter.avg, valLossMeter.avg, varMeter.avg, epoch, save_eval_fname)
 
     if args.plots:
         saveplot_coxloss(save_eval_fname, model._get_name())
