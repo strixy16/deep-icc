@@ -16,7 +16,7 @@ from rfs_models import *
 
 parser = argparse.ArgumentParser(description='Training variables:')
 parser.add_argument('--batchsize', default=32, type=int, help='Number of samples used for each training cycle')
-parser.add_argument('--covariate', default=18, type=int, help='Number of genes flags in gene feature data')
+# parser.add_argument('--covariate', default=18, type=int, help='Number of genes flags in gene feature data')
 parser.add_argument('--datadir', default='/media/katy/Data/ICC/Data', type=str, help='Full path to the Data directory '
                                                                                      'where images, labels, are stored'
                                                                                      'and output will be saved.')
@@ -26,13 +26,14 @@ parser.add_argument('--learnrate', default=3e-3, type=float, help='Starting lear
 parser.add_argument('--modelname', default='Resnet18', type=str, help='Name of model type to use for CNN half of model.'
                                                                        'Current options are Resnet18 and Resnet34')
 parser.add_argument('--randseed', default=16, type=int, help='Random seed for reproducibility')
-parser.add_argument('--scanthresh', default=300, type=int, help='Threshold for number of tumour pixels to filter images'
+parser.add_argument('--scanthresh', default=500, type=int, help='Threshold for number of tumour pixels to filter images'
                                                                 ' through')
 parser.add_argument('--validation', default=0, type=int, help='Select validation method from list: '
                                                               '0: hold out, 1: k-fold')
-parser.add_argument('--split', default=0.9, type=float, help='Fraction of data to use for training (ex. 0.8) with'
-                                                             'hold-out validation')
-parser.add_argument('--kfold_num', default=5, type=int, help='If using k-fold cross validation, supply k value')
+parser.add_argument('--split', default=0.8, type=float, help='Fraction of data to use for training (ex. 0.8)')
+parser.add_argument('--valid_split', default=0.2, type=float, help='Fraction of training data to use for hold out '
+                                                                   'validation (ex. 0.2)')
+# parser.add_argument('--kfold_num', default=5, type=int, help='If using k-fold cross validation, supply k value')
 parser.add_argument('--verbose', default=1, type=int, help='Levels of output: 0: none, 1: training output')
 parser.add_argument('--plots', default=True, type=bool, help='Save plots of evaluation values over model training')
 
@@ -50,18 +51,10 @@ def main():
     out_dir = 'Output/' + str(args.modelname) + '-' + datetime.now().strftime("%Y-%m-%d-%H%M")
     out_path = os.path.join(args.datadir, out_dir)
 
-    # Make output folder for the training run
-    if not os.path.exists(out_path):
-        os.makedirs(out_path)
-
-    # Save out parameters used for the run
-    save_param_fname = os.path.join(out_path, 'parameters.txt')
-    with open(save_param_fname, 'w') as f:
-        json.dump(args.__dict__, f, indent=2)
-
     # DATA LOADING
     # This does hold-out validation
-    train_loader, valid_loader, test_loader = load_chol_tumor_w_gene(args.datadir, split=args.split, valid=True)
+    train_loader, valid_loader, test_loader = load_chol_tumor_w_gene(args.datadir, split=args.split, valid=True,
+                                                                     valid_split=args.valid_split)
 
     # MODEL SETUP
     num_genes = train_loader.dataset.num_genes
@@ -76,6 +69,15 @@ def main():
     # Define loss function and optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learnrate)
     criterion = NegativeLogLikelihood(device)
+
+    # Make output folder for the training run
+    if not os.path.exists(out_path):
+        os.makedirs(out_path)
+
+    # Save out parameters used for the run
+    save_param_fname = os.path.join(out_path, 'parameters.txt')
+    with open(save_param_fname, 'w') as f:
+        json.dump(args.__dict__, f, indent=2)
 
     # Setting up file to save out evaluation values to/load them from
     save_eval_fname = os.path.join(out_path, 'convergence.csv')
