@@ -56,13 +56,14 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 
-def save_error(train_ci, val_ci, coxLoss, variance, epoch, slname):
+def save_error(train_ci=0, val_ci=0, coxLoss=0, valCoxLoss=0, variance=0, epoch=0, slname='convergence.csv'):
     """Save training and validation statistics to csv file
 
         Args:
             train_ci: float, training concordance index for this epoch
             val_ci: float, validation concordance index for this epoch
             coxLoss: float, training loss, negative log likelihood
+            valCoxLoss: float, validation loss, negative log likelihood
             variance:
             epoch: int, epoch these stats are from
             slname: string, filename (sl = save location)
@@ -70,13 +71,12 @@ def save_error(train_ci, val_ci, coxLoss, variance, epoch, slname):
     if epoch == 0:
         # Create file for first epoch
         f = open(slname, 'w')
-        f.write('epoch,coxLoss,trainCI,valCI,variance\n')
-        f.write('{},{:.4f},{:.4f},{:.4f},{}\n'.format(epoch, coxLoss, train_ci, val_ci, variance))
-        f.close()
+        f.write('epoch,coxLoss,trainCI,valCoxLoss,valCI,variance\n')
     else:
         f = open(slname, 'a')
-        f.write('{},{:.4f},{:.4f},{:.4f},{}\n'.format(epoch, coxLoss, train_ci, val_ci, variance))
-        f.close()
+
+    f.write('{},{:.4f},{:.4f},{:.4f},{:.4f},{}\n'.format(epoch, coxLoss, train_ci, valCoxLoss, val_ci, variance))
+    f.close()
 
 
 def saveplot_coxloss(filename, model_name):
@@ -93,6 +93,7 @@ def saveplot_coxloss(filename, model_name):
     fig = plt.figure()
     axLoss = plt.subplot(111)
     axLoss.plot(evaluation_df['epoch'], evaluation_df['coxLoss'], label='Training')
+    axLoss.plot(evaluation_df['epoch'], evaluation_df['valCoxLoss'], label='Validation')
     plt.title("Training Loss - " + model_name)
     plt.xlabel("Epoch")
     plt.ylabel("Loss")

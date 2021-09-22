@@ -142,9 +142,10 @@ class ResNet(nn.Module):
         out = self.layercph(out)
         return out
 
+
 class CholClassifier(nn.Module):
-    def __init__(self, resnet_type, covariates, l2=256, l3=128, d1=0, d2=0, d3=0.375):
-        super(CholClassifier).__init__()
+    def __init__(self, resnet_type, num_genes, l2=256, l3=128, d1=0.2, d2=0, d3=0.375):
+        super(CholClassifier, self).__init__()
         res_model = ''
         if resnet_type == '18':
             res_model = models.resnet18(pretrained=True)
@@ -168,7 +169,7 @@ class CholClassifier(nn.Module):
         )
 
         self.gene = nn.Sequential(
-            nn.Linear(covariates, 4),
+            nn.Linear(num_genes, 4),
             nn.BatchNorm1d(4),
             nn.SELU(),
             nn.Dropout(d3),
@@ -179,15 +180,15 @@ class CholClassifier(nn.Module):
 
         self.final = nn.Linear(l3 + 4, 1)
 
-    def forward(self, img, gene):
+    def forward(self, img, genes):
         img = self.res(img)
-        img = img.view(img.size(0), 1)
+        img = img.view(img.size(0), -1)
         img = self.ct(img)
 
-        gene = self.gene(gene)
+        gene = self.gene(genes)
 
         x = torch.cat((img, gene), dim=1)
-        x = nn.SELU(x)
+        # x = nn.SELU(x)
 
         return self.final(x)
 
