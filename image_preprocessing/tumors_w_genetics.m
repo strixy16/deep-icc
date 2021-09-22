@@ -32,4 +32,7 @@ function opt = tumors_w_genetics
     % File name + location to output in createCSV.m
     opt.ZeroCSV = strcat("/Users/katyscott/Documents/ICC/Data/Labels/", string(opt.ImageSize(1)), "/RFS_gene_tumors_zero.csv");
     opt.NaNCSV = strcat("/Users/katyscott/Documents/ICC/Data/Labels/", string(opt.ImageSize(1)), "/RFS_gene_tumors_NaN.csv");
+
+    opt.NoLabelZeroCSV = strcat("/Users/katyscott/Documents/ICC/Data/Labels/", string(opt.ImageSize(1)), "/nl_gene_tumors_zero.csv");
+    opt.NoLabelNaNCSV = strcat("/Users/katyscott/Documents/ICC/Data/Labels/", string(opt.ImageSize(1)), "/nl_gene_tumors_NaN.csv");
 end
