@@ -1,7 +1,7 @@
 function createCSV(conf_f, background)
 % Name: createCSV
 % Description: Function to generate CSV file to correspond patients with 
-% images and slices from preprocessMHA
+% images and slices from preprocessMHA along with labels
 %
 % INPUT: 
 %   conf_f       -- configuration file for different datasets
