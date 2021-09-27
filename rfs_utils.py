@@ -12,6 +12,8 @@ import os
 import pandas as pd
 import torch
 
+from rfs_models import *
+
 
 def c_index(risk_pred, y, e):
     """ Calculate c-index
@@ -80,7 +82,7 @@ def save_error(train_ci=0, val_ci=0, coxLoss=0, valCoxLoss=0, variance=0, epoch=
     f.close()
 
 
-def saveplot_coxloss(filename, model_name):
+def saveplot_coxloss(filename, model_name, valid):
     """
     Function to save a plot of loss over model training.
 
@@ -94,7 +96,8 @@ def saveplot_coxloss(filename, model_name):
     fig = plt.figure()
     axLoss = plt.subplot(111)
     axLoss.plot(evaluation_df['epoch'], evaluation_df['coxLoss'], label='Training')
-    axLoss.plot(evaluation_df['epoch'], evaluation_df['valCoxLoss'], label='Validation')
+    if valid:
+        axLoss.plot(evaluation_df['epoch'], evaluation_df['valCoxLoss'], label='Validation')
     plt.title("Training Loss - " + model_name)
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
@@ -106,7 +109,7 @@ def saveplot_coxloss(filename, model_name):
     plt.savefig(out_file)
 
 
-def saveplot_concordance(filename, model_name):
+def saveplot_concordance(filename, model_name, valid):
     """
     Function to plot concordance index for training and validation of model training.
 
@@ -120,7 +123,8 @@ def saveplot_concordance(filename, model_name):
     fig = plt.figure()
     axCI = plt.subplot(111)
     axCI.plot(evaluation_df['epoch'], evaluation_df['trainCI'], label="Training")
-    axCI.plot(evaluation_df['epoch'], evaluation_df['valCI'], label="Validation")
+    if valid:
+        axCI.plot(evaluation_df['epoch'], evaluation_df['valCI'], label="Validation")
     plt.title("Concordance Index - " + model_name)
     plt.xlabel("Epoch")
     plt.ylabel("C-index")
@@ -145,3 +149,33 @@ def savemodel(out_path, model):
 
     torch.save(model.state_dict(), save_model_fname)
 
+
+def select_model(modelname, device, num_genes=0):
+    """
+    Function to set up a model for training.
+
+    Args:
+         modelname: string, desired model to build
+         device: torch.device, device to save model to (for use with GPU)
+         num_genes: int, for models using genetic data, need # of genes for input layer
+
+    Returns:
+        model: nn.Module, model to use for training
+    """
+    # Determining which model to build (models from rfs_models.py)
+    if modelname == 'KT6Model':
+        model = KT6Model().to(device)
+    elif modelname == 'DeepConvSurv':
+        model = DeepConvSurv().to(device)
+    elif modelname == 'Resnet18':
+        model = ResNet('18').to(device)
+    elif modelname == 'Resnet34':
+        model = ResNet('34').to(device)
+    elif modelname == 'CholClassifier18':
+        model = CholClassifier('18', num_genes).to(device)
+    elif modelname == 'CholClassifier34':
+        model = CholClassifier('34', num_genes).to(device)
+    else:
+        raise Exception('Invalid model type name.')
+
+    return model
