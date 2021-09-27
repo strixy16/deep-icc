@@ -331,7 +331,7 @@ def pat_train_test_split(pat_num, label, split_perc=0.1, valid=False, valid_spli
             ts_slice_o = np.expand_dims(ts_slice_o, axis=0)
         test_o_slice = np.concatenate((test_o_slice, ts_slice_o))
 
-    if valid:
+    if valid == 1:
         # Validation slice set for censored patients (rfs_code = 0)
         valid_z_slice = []
         for pat in valid_z_pat:
@@ -354,7 +354,7 @@ def pat_train_test_split(pat_num, label, split_perc=0.1, valid=False, valid_spli
     train_slice = np.concatenate((train_z_slice, train_o_slice)).astype(int)
     test_slice = np.concatenate((test_z_slice, test_o_slice)).astype(int)
 
-    if valid:
+    if valid == 1:
         # Tuples of indices for training, validation, and testing slices
         sets = (train_slice, valid_slice, test_slice)
     else:
