@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
+import torch
 
 
 def c_index(risk_pred, y, e):
@@ -129,3 +130,18 @@ def saveplot_concordance(filename, model_name):
     out_file = os.path.join(out_path, 'c_index.png')
 
     plt.savefig(out_file)
+
+
+def savemodel(out_path, model):
+    """
+    Function to save out a trained PyTorch model
+
+    Args:
+        out_path: string, path to where to save out the model
+        model: nn.Module object, model to save
+    """
+    save_model_fname = model._get_name() + '.pth'
+    save_model_fname = os.path.join(out_path, save_model_fname)
+
+    torch.save(model.state_dict(), save_model_fname)
+
