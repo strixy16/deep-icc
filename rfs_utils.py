@@ -82,13 +82,15 @@ def save_error(train_ci=0, val_ci=0, coxLoss=0, valCoxLoss=0, variance=0, epoch=
     f.close()
 
 
-def saveplot_coxloss(filename, model_name, valid):
+def plot_coxloss(filename, model_name, valid=False, save=True):
     """
-    Function to save a plot of loss over model training.
+    Function to save or display a plot of loss over model training.
 
     Args:
         filename: string, path and name of file that was output during training
         model_name: string, name of model for title of plots
+        valid: boolean, if validation set was used, plot validation concordance
+        save: boolean, if true, save the plot instead of displaying it
     """
 
     evaluation_df = pd.read_csv(filename)
@@ -103,19 +105,25 @@ def saveplot_coxloss(filename, model_name, valid):
     plt.ylabel("Loss")
     axLoss.legend()
 
-    out_path = os.path.dirname(filename)
-    out_file = os.path.join(out_path, 'loss.png')
+    if save:
+        out_path = os.path.dirname(filename)
+        out_file = os.path.join(out_path, 'loss.png')
 
-    plt.savefig(out_file)
+        plt.savefig(out_file)
+
+    else:
+        plt.show()
 
 
-def saveplot_concordance(filename, model_name, valid):
+def plot_concordance(filename, model_name, valid=False, save=True):
     """
-    Function to plot concordance index for training and validation of model training.
+    Function to save or display a plot of concordance index over model training.
 
     Args:
         filename: string, path and name of file that was output during training
         model_name: string, name of model for title of plots
+        valid: boolean, if validation set was used, plot validation concordance
+        save: boolean, if true, save the plot instead of displaying it
     """
 
     evaluation_df = pd.read_csv(filename)
@@ -130,10 +138,14 @@ def saveplot_concordance(filename, model_name, valid):
     plt.ylabel("C-index")
     axCI.legend()
 
-    out_path = os.path.dirname(filename)
-    out_file = os.path.join(out_path, 'c_index.png')
+    if save:
+        out_path = os.path.dirname(filename)
+        out_file = os.path.join(out_path, 'c_index.png')
 
-    plt.savefig(out_file)
+        plt.savefig(out_file)
+
+    else:
+        plt.show()
 
 
 def savemodel(out_path, model):
