@@ -31,7 +31,8 @@ parser.add_argument('--validation', default=0, type=int, help='Whether to use a 
 parser.add_argument('--split', default=0.8, type=float, help='Fraction of data to use for training (ex. 0.8)')
 parser.add_argument('--valid_split', default=0.2, type=float, help='Fraction of training data to use for hold out '
                                                                    'validation (ex. 0.2)')
-parser.add_argument('--plots', default=True, type=bool, help='Save plots of evaluation values over model training')
+parser.add_argument('--saveplots', default=True, type=bool, help='What to do with plots of evaluation values over model '
+                                                              'training. If false, will display plots instead.')
 parser.add_argument('--testing', default=True, type=bool, help='Set this to disable saving output (e.g. plots, '
                                                                ' parameters). For use while testing script.')
 
@@ -178,7 +179,11 @@ def train_ct():
                 save_error(train_ci=ciMeter.val, coxLoss=coxLossMeter.val,
                            variance=varMeter.val, epoch=epoch, slname=save_eval_fname)
 
+    if not args.testing:
+        plot_coxloss(save_eval_fname, model._get_name(), valid=args.validation, save=args.saveplots)
+        plot_concordance(save_eval_fname, model._get_name(), valid=args.validation, save=args.saveplots)
 
+    # TODO: add final row of average values from the AverageMeters
 
 
 if __name__ == '__main__':
