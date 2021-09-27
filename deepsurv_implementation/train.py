@@ -1,6 +1,7 @@
 
 import os
 import argparse
+from datetime import datetime
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from torch.utils.data import Dataset
@@ -8,19 +9,21 @@ from torch.utils.data import Dataset
 from models import *
 from utils import *
 
+from rfs_utils import saveplot_concordance, saveplot_coxloss
+
 parser = argparse.ArgumentParser(description='EPL')
 parser.add_argument('--lr', default=1e-3, type=float)
 parser.add_argument('--dropout', default=.3, type=float)
 parser.add_argument('--out', default=1, type=int)
 parser.add_argument('--lib', default='', type=str)
-parser.add_argument('-e', '--epochs', default=2000, type=int)
+parser.add_argument('-e', '--epochs', default=1000, type=int)
 parser.add_argument('--decay-interval', default=400, type=int)
 parser.add_argument('-b','--batch-size', default=4000, type=int)
 parser.add_argument('--weightdecay', default=1e-4, type=float)
 parser.add_argument('--covariates', default=18, type=int)
 parser.add_argument('--strat', default='none', type=str)
 parser.add_argument('--development', default=0, type=int)
-parser.add_argument('--activation', default='SELU', type=str)
+parser.add_argument('--activation', default='ReLU', type=str)
 parser.add_argument('--normalize', default='True', type=bool)
 
 
@@ -34,6 +37,7 @@ def main():
         save_path = 'test'
     else:
         save_path = '{}_{}lr_{}b_'.format(args.activation,args.lr,args.batch_size)
+        save_path = save_path + datetime.now().strftime("%Y-%m-%d-%H%M")
     out_dir = os.path.join(root_output, save_path)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
@@ -125,6 +129,9 @@ def main():
         print('Epoch: {} \t Train Loss: {:.4f} \t Train CI: {:.3f} \t Val CI: {:.3f}'.format(epoch, train_loss, train_c, val_c))
         save_error(ciMeter.avg, ciValMeter.avg, coxLossMeter.avg, stratLossMeter.avg, varMeter.avg, epoch, os.path.join(out_dir, 'convergence.csv'))
 
+    out_file = os.path.join(out_dir, 'convergence.csv')
+    saveplot_concordance(out_file, model._get_name())
+    saveplot_coxloss(out_file, model._get_name())
 
 
 def stratify(risk):
