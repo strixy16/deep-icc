@@ -19,7 +19,7 @@ parser.add_argument('--batchsize', default=16, type=int, help='Number of samples
 parser.add_argument('--datadir', default='/media/katy/Data/ICC/Data', type=str, help='Full path to the Data directory '
                                                                                      'where images, labels, are stored'
                                                                                      'and output will be saved.')
-parser.add_argument('--epochs', default=100, type=int, help='Number of training epochs to run')
+parser.add_argument('--epochs', default=10, type=int, help='Number of training epochs to run')
 parser.add_argument('--imdim', default=256, type=int, help='Dimension of image to load')
 parser.add_argument('--learnrate', default=1e-5, type=float, help='Starting learning rate for training')
 parser.add_argument('--modelname', default='Resnet34', type=str, help='Name of model type to use for CNN half of model.'
@@ -27,13 +27,13 @@ parser.add_argument('--modelname', default='Resnet34', type=str, help='Name of m
 parser.add_argument('--randseed', default=16, type=int, help='Random seed for reproducibility')
 parser.add_argument('--scanthresh', default=300, type=int, help='Threshold for number of tumour pixels to filter images'
                                                                 ' through')
-parser.add_argument('--validation', default=0, type=int, help='Whether to use a validation set with train and test')
+parser.add_argument('--validation', default=1, type=int, help='Whether to use a validation set with train and test')
 parser.add_argument('--split', default=0.8, type=float, help='Fraction of data to use for training (ex. 0.8)')
 parser.add_argument('--valid_split', default=0.2, type=float, help='Fraction of training data to use for hold out '
                                                                    'validation (ex. 0.2)')
 parser.add_argument('--saveplots', default=True, type=bool, help='What to do with plots of evaluation values over model '
                                                               'training. If false, will display plots instead.')
-parser.add_argument('--testing', default=True, type=bool, help='Set this to disable saving output (e.g. plots, '
+parser.add_argument('--testing', default=False, type=bool, help='Set this to disable saving output (e.g. plots, '
                                                                ' parameters). For use while testing script.')
 
 
@@ -66,6 +66,9 @@ def train_ct():
         # Setting up file to save out evaluation values to/load them from
         save_eval_fname = os.path.join(out_path, 'convergence.csv')
 
+        # Setting up file to save out final values
+        save_final_fname = os.path.join(out_path, 'final_results.csv')
+
 
     ## DATA LOADING ##
     if args.validation:
@@ -88,7 +91,7 @@ def train_ct():
     criterion = NegativeLogLikelihood(device)
 
     for epoch in range(0, args.epochs):
-        # Initialize value holders for training loss, c-index, and var values
+        # Initialize/reset value holders for training loss, c-index, and var values
         coxLossMeter = AverageMeter()
         ciMeter = AverageMeter()
         varMeter = AverageMeter()
@@ -132,11 +135,11 @@ def train_ct():
         # Validation phase
         if args.validation:
             model.eval()
+            # Initialize/reset value holders for validation loss, c-index
             valLossMeter = AverageMeter()
             ciValMeter = AverageMeter()
             for val_X, val_y, val_e in valid_loader:
                 # val_X = CT image
-                # val_g = genetic markers
                 # val_y = time to event
                 # val_e = event indicator
 
@@ -157,33 +160,80 @@ def train_ct():
                 val_risk_pred = model(val_X)
 
                 # Calculate loss and evaluation metrics
-                val_cox_loss = criterion(-risk_pred, y, e, model)
-                valLossMeter.update(val_cox_loss.item(), y.size(0))
+                val_cox_loss = criterion(-val_risk_pred, val_y, val_e, model)
+                valLossMeter.update(val_cox_loss.item(), val_y.size(0))
 
-                val_ci = c_index(val_risk_pred, y, e)
-                ciValMeter.update(val_ci.item(), y.size(0))
+                val_ci = c_index(val_risk_pred, val_y, val_e)
+                ciValMeter.update(val_ci.item(), val_y.size(0))
 
-            print('Epoch: {} \t Train Loss: {} \t Val Loss: {:.4f} \t Train CI: {:.4f} \t Val CI: {:.3f}'.format(
-                  epoch, coxLossMeter.val, valLossMeter.val, ciMeter.val, ciValMeter.val))
+            # Printing the average so you get average across all the batches for this epoch.
+            print('Epoch: {} \t Train Loss: {:.4f} \t Val Loss: {:.4f} \t Train CI: {:.4f} \t Val CI: {:.4f}'.format(
+                  epoch, coxLossMeter.avg, valLossMeter.avg, ciMeter.avg, ciValMeter.avg))
 
             if not args.testing:
-                save_error(train_ci=ciMeter.val, val_ci=ciValMeter.val,
-                           coxLoss=coxLossMeter.val, valCoxLoss=valLossMeter.val,
-                           variance=varMeter.val, epoch=epoch, slname=save_eval_fname)
+                # Saving evaluation metrics, using average across all batches for this epoch
+                save_error(train_ci=ciMeter.avg, val_ci=ciValMeter.avg,
+                           coxLoss=coxLossMeter.avg, valCoxLoss=valLossMeter.avg,
+                           variance=varMeter.avg, epoch=epoch, slname=save_eval_fname)
 
         else:
-            print('Epoch: {} \t Train Loss: {} \t Train CI: {:.4f}'.format(
-                epoch, coxLossMeter.val, valLossMeter.val, ciMeter.val, ciValMeter.val))
+            print('Epoch: {} \t Train Loss: {:.4f} \t Train CI: {:.4f}'.format(
+                epoch, coxLossMeter.avg, ciMeter.avg))
 
             if not args.testing:
-                save_error(train_ci=ciMeter.val, coxLoss=coxLossMeter.val,
-                           variance=varMeter.val, epoch=epoch, slname=save_eval_fname)
+                save_error(train_ci=ciMeter.avg, coxLoss=coxLossMeter.avg,
+                           variance=varMeter.avg, epoch=epoch, slname=save_eval_fname)
 
     if not args.testing:
         plot_coxloss(save_eval_fname, model._get_name(), valid=args.validation, save=args.saveplots)
         plot_concordance(save_eval_fname, model._get_name(), valid=args.validation, save=args.saveplots)
 
     # TODO: add final row of average values from the AverageMeters
+    # TODO: testing section
+
+    ## MODEL TESTING ##
+    model.eval()
+    testLossMeter = AverageMeter()
+    ciTestMeter = AverageMeter()
+    for test_X, test_y, test_e in test_loader:
+        # test_X = CT image
+        # test_y = time to event
+        # test_e = event indicator
+
+        # ResNet models expect an RGB image, so a 3 channel version of the CT image is generated here
+        # (CholClassifier contains a ResNet component, so included here as well)
+        if type(model) == ResNet or type(model) == CholClassifier:
+            # Convert grayscale image to rgb to generate 3 channels
+            rgb_testX = gray2rgb(test_X)
+            # Reshape so channels is second value
+            rgb_testX = torch.from_numpy(rgb_testX)
+            test_X = torch.reshape(rgb_testX,
+                                  (rgb_testX.shape[0], rgb_testX.shape[-1], rgb_testX.shape[2], rgb_testX.shape[3]))
+
+        # Convert all values to float for backprop and evaluation calculations
+        test_X, test_y, test_e = test_X.float().to(device), test_y.float().to(device), test_e.float().to(device)
+
+        # Forward pass through the model
+        test_risk_pred = model(test_X)
+
+        # Calculate loss and evaluation metrics
+        test_cox_loss = criterion(-test_risk_pred, test_y, test_e, model)
+        testLossMeter.update(test_cox_loss.item(), test_y.size(0))
+
+        test_ci = c_index(test_risk_pred, test_y, test_e)
+        ciTestMeter.update(test_ci.item(), test_y.size(0))
+
+    print('Test Loss: {:.4f} \t Test CI: {:.4f}'.format(testLossMeter.avg, ciTestMeter.avg))
+
+    if not args.testing:
+        if args.validation:
+            save_final_result(train_ci=ciMeter.avg, val_ci=ciValMeter.avg, test_ci=ciTestMeter.avg,
+                              coxLoss=coxLossMeter.avg, valCoxLoss=valLossMeter.avg, testCoxLoss=testLossMeter.avg,
+                              slname=save_final_fname)
+        else:
+            save_final_result(train_ci=ciMeter.avg, test_ci=ciTestMeter.avg,
+                              coxLoss=coxLossMeter.avg, testCoxLoss=testLossMeter.avg,
+                              slname=save_final_fname)
 
 
 if __name__ == '__main__':
