@@ -22,8 +22,9 @@ parser.add_argument('--datadir', default='/media/katy/Data/ICC/Data', type=str, 
 parser.add_argument('--epochs', default=10, type=int, help='Number of training epochs to run')
 parser.add_argument('--imdim', default=256, type=int, help='Dimension of image to load')
 parser.add_argument('--learnrate', default=1e-5, type=float, help='Starting learning rate for training')
-parser.add_argument('--modelname', default='Resnet34', type=str, help='Name of model type to use for CNN half of model.'
-                                                                       'Current options are Resnet18 and Resnet34')
+parser.add_argument('--modelname', default='Resnet34', type=str, help='Name of model type to build and train. '
+                                                                      'CNN ptions are KT6Model, DeepConvSurv'
+                                                                      'Resnet18, Resnet34')
 parser.add_argument('--randseed', default=16, type=int, help='Random seed for reproducibility')
 parser.add_argument('--scanthresh', default=300, type=int, help='Threshold for number of tumour pixels to filter images'
                                                                 ' through')
@@ -31,10 +32,10 @@ parser.add_argument('--validation', default=1, type=int, help='Whether to use a 
 parser.add_argument('--split', default=0.8, type=float, help='Fraction of data to use for training (ex. 0.8)')
 parser.add_argument('--valid_split', default=0.2, type=float, help='Fraction of training data to use for hold out '
                                                                    'validation (ex. 0.2)')
-parser.add_argument('--saveplots', default=True, type=bool, help='What to do with plots of evaluation values over model '
-                                                              'training. If false, will display plots instead.')
+parser.add_argument('--saveplots', default=True, type=bool, help='What to do with plots of evaluation values over model'
+                                                                 'training. If false, will display plots instead.')
 parser.add_argument('--testing', default=False, type=bool, help='Set this to disable saving output (e.g. plots, '
-                                                               ' parameters). For use while testing script.')
+                                                                'parameters). For use while testing script.')
 
 
 def train_ct():
@@ -86,10 +87,13 @@ def train_ct():
                                                     seed=args.randseed)
 
     ## MODEL SETUP ##
+    # Select which model architecture to build
     model = select_model(args.modelname, device)
+    # Setting optimization method and loss function
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learnrate)
     criterion = NegativeLogLikelihood(device)
 
+    ## MODEL TRAINING ##
     for epoch in range(0, args.epochs):
         # Initialize/reset value holders for training loss, c-index, and var values
         coxLossMeter = AverageMeter()
@@ -131,6 +135,7 @@ def train_ct():
             optimizer.zero_grad()
             cox_loss.backward()
             optimizer.step()
+        # end train for loop
 
         # Validation phase
         if args.validation:
@@ -169,18 +174,22 @@ def train_ct():
             # Printing the average so you get average across all the batches for this epoch.
             print('Epoch: {} \t Train Loss: {:.4f} \t Val Loss: {:.4f} \t Train CI: {:.4f} \t Val CI: {:.4f}'.format(
                   epoch, coxLossMeter.avg, valLossMeter.avg, ciMeter.avg, ciValMeter.avg))
+            # end validation for loop
 
             if not args.testing:
                 # Saving evaluation metrics, using average across all batches for this epoch
                 save_error(train_ci=ciMeter.avg, val_ci=ciValMeter.avg,
                            coxLoss=coxLossMeter.avg, valCoxLoss=valLossMeter.avg,
                            variance=varMeter.avg, epoch=epoch, slname=save_eval_fname)
+            # end if testing check
+        # end if validation check
 
         else:
-            print('Epoch: {} \t Train Loss: {:.4f} \t Train CI: {:.4f}'.format(
-                epoch, coxLossMeter.avg, ciMeter.avg))
+            # Validation not used, display/save only training results
+            print('Epoch: {} \t Train Loss: {:.4f} \t Train CI: {:.4f}'.format(epoch, coxLossMeter.avg, ciMeter.avg))
 
             if not args.testing:
+                # Saving evaluation metrics, using average across all batches for this epoch
                 save_error(train_ci=ciMeter.avg, coxLoss=coxLossMeter.avg,
                            variance=varMeter.avg, epoch=epoch, slname=save_eval_fname)
 
@@ -189,7 +198,6 @@ def train_ct():
         plot_concordance(save_eval_fname, model._get_name(), valid=args.validation, save=args.saveplots)
 
     # TODO: add final row of average values from the AverageMeters
-    # TODO: testing section
 
     ## MODEL TESTING ##
     model.eval()
@@ -226,6 +234,10 @@ def train_ct():
     print('Test Loss: {:.4f} \t Test CI: {:.4f}'.format(testLossMeter.avg, ciTestMeter.avg))
 
     if not args.testing:
+        # Saving out Pytorch model as .pth file so it can be reloaded if successful
+        savemodel(out_path, model)
+
+        # Saving out final train/valid/test statistics at end of training
         if args.validation:
             save_final_result(train_ci=ciMeter.avg, val_ci=ciValMeter.avg, test_ci=ciTestMeter.avg,
                               coxLoss=coxLossMeter.avg, valCoxLoss=valLossMeter.avg, testCoxLoss=testLossMeter.avg,
