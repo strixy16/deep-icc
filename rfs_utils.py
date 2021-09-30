@@ -60,7 +60,7 @@ class AverageMeter(object):
 
 
 def save_error(train_ci=0, val_ci=0, coxLoss=0, valCoxLoss=0, variance=0, epoch=0, slname='convergence.csv'):
-    """Save training and validation statistics to csv file
+    """Save training and validation statistics to csv file for a given training epoch
 
         Args:
             train_ci: float, training concordance index for this epoch
@@ -69,7 +69,7 @@ def save_error(train_ci=0, val_ci=0, coxLoss=0, valCoxLoss=0, variance=0, epoch=
             valCoxLoss: float, validation loss, negative log likelihood
             variance:
             epoch: int, epoch these stats are from
-            slname: string, filename (sl = save location)
+            slname: string, filename with path (sl = save location)
     """
     if epoch == 0:
         # Create file for first epoch
@@ -81,6 +81,32 @@ def save_error(train_ci=0, val_ci=0, coxLoss=0, valCoxLoss=0, variance=0, epoch=
     f.write('{},{:.4f},{:.4f},{:.4f},{:.4f},{}\n'.format(epoch, coxLoss, train_ci, valCoxLoss, val_ci, variance))
     f.close()
 
+
+def save_final_result(train_ci=0, val_ci=0, test_ci=0, coxLoss=0, valCoxLoss=0, testCoxLoss=0,
+                     slname='final_result.csv'):
+    """
+    Save final training, validation, test results to a csv file
+
+    Args:
+        train_ci: float, training concordance index from end of training
+        val_ci: float, validation concordance index from end of training
+        test_ci: float, test concordance index
+        coxLoss: float, training loss from end of training
+        valCoxLoss: float, validation loss from end of training
+        testCoxLoss: float, test loss
+        slname: string, filename with path (sl = save location)
+    """
+    f = open(slname, 'w')
+    # Validation values are default, validation wasn't used for this training, only saving train and test vals
+    if val_ci == 0 and valCoxLoss == 0:
+        f.write('TrainLoss,TestLoss,TrainCI,TestCI\n')
+        f.write('{:.4f},{:.4f},{:.4f},{:.4f}'.format(coxLoss, testCoxLoss, train_ci, test_ci))
+    # Validation used, saving train, validation, and test values
+    else:
+        f.write('TrainLoss,ValLoss,TestLoss,TrainCI,ValCI,TestCI\n')
+        f.write('{:.4f},{:.4f},{:.4f},{:.4f},{:.4f},{:.4f}'.format(coxLoss, valCoxLoss, testCoxLoss,
+                                                                   train_ci, val_ci, test_ci))
+    f.close()
 
 def plot_coxloss(filename, model_name, valid=False, save=True):
     """
