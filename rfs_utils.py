@@ -209,6 +209,8 @@ def select_model(modelname, device, num_genes=0):
         model = ResNet('18').to(device)
     elif modelname == 'Resnet34':
         model = ResNet('34').to(device)
+    elif modelname == 'DeepSurvGene':
+        model = DeepSurvGene(num_genes).to(device)
     elif modelname == 'CholClassifier18':
         model = CholClassifier('18', num_genes).to(device)
     elif modelname == 'CholClassifier34':
