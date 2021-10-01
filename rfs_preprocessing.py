@@ -149,7 +149,7 @@ def load_chol_tumor(data_dir="../Data/", imdim=256, scanthresh=300, split=0.8, b
         test_dataset = CTSurvDataset(filtered_info, z_img_path, test_idx, imdim)
 
         train_loader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size)  # ,drop_last=True)
-        valid_loader = DataLoader(valid_dataset, shuffle=True, batch_size=batch_size)  # ,drop_last=True)
+        valid_loader = DataLoader(valid_dataset, shuffle=True, batch_size=batch_size, drop_last=True)
         test_loader = DataLoader(test_dataset, shuffle=True, batch_size=batch_size, drop_last=True)
 
         return train_loader, valid_loader, test_loader
@@ -214,7 +214,7 @@ def load_chol_tumor_w_gene(data_dir="../Data/", imdim=256, scanthresh=300, split
         test_dataset = CTGeneDataset(filtered_info, z_img_path, test_idx, imdim)
 
         train_loader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size)  # ,drop_last=True)
-        valid_loader = DataLoader(valid_dataset, shuffle=True, batch_size=batch_size)  # ,drop_last=True)
+        valid_loader = DataLoader(valid_dataset, shuffle=True, batch_size=batch_size, drop_last=True)
         test_loader = DataLoader(test_dataset, shuffle=True, batch_size=batch_size, drop_last=True)
 
         return train_loader, valid_loader, test_loader
