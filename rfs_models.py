@@ -143,6 +143,66 @@ class ResNet(nn.Module):
         return out
 
 
+class DeepSurvGene(nn.Module):
+    ''' The module class performs building network according to config'''
+    def __init__(self, num_genes, activation='ReLU'):
+        ''' Initialize DeepSurvGene class
+
+        Args:
+            activation: string, name of activation function to use
+            num_genes: int, number of genes, needed for size of first layer
+
+        Returns:
+            torch.nn Module object, built sequential network
+        '''
+        super(DeepSurvGene, self).__init__()
+        # parses parameters of network from configuration
+        # Set some defaults for network arguments
+        # Fraction of input units to drop in dropout layer
+        self.drop = 0.375  # 0.401
+        # Flag to in/exclude normalization layers
+        self.norm = True
+        # Default dimensions of fully connected layers
+        self.dims = [num_genes, 4, 1]  # 10, 17, 17, 17, 1]
+        # Activation type to use
+        self.activation = activation
+        # Build network using class function (below)
+        self.model = self._build_network()
+
+    def _build_network(self):
+        ''' Performs building networks according to parameters'''
+        layers = []
+        for i in range(len(self.dims) - 1):
+            if i and self.drop is not None:
+                # Add dropout layer
+                layers.append(nn.Dropout(self.drop))
+
+            # Add fully connected layer
+            layers.append(nn.Linear(self.dims[i], self.dims[i + 1]))
+
+            if self.norm:
+                # Add batchnormalize layer
+                layers.append(nn.BatchNorm1d(self.dims[i + 1]))
+
+            # Adds activation layer
+            # eval creates proper format of activation to get from NN
+            layers.append(eval('nn.{}()'.format(self.activation)))
+
+        # Build sequential network from list of layers created in for loop
+        return nn.Sequential(*layers)
+
+    def forward(self, X):
+        ''' Forward propagation through network
+
+        Args:
+            X: data to pass through network
+
+        Returns:
+            Output of model (risk prediction)
+        '''
+        return self.model(X)
+
+
 class CholClassifier(nn.Module):
     def __init__(self, resnet_type, num_genes, l2=256, l3=128, d1=0.2, d2=0, d3=0.375):
         super(CholClassifier, self).__init__()
