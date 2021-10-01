@@ -39,6 +39,7 @@ class CTSurvDataset(Dataset):
         self.dim = img_dim
 
         # TODO: introduce MinMaxScaler and/or Normalization
+        # do I actually need these?
 
     def __getitem__(self, index):
         e_tensor = torch.Tensor([self.event[index]]).int()
@@ -52,6 +53,36 @@ class CTSurvDataset(Dataset):
         X_tensor = torch.from_numpy(img)
 
         return X_tensor, t_tensor, e_tensor
+
+    def __len__(self):
+        return len(self.event)
+
+
+class GeneSurvDataset(Dataset):
+    def __init__(self, info):
+        """
+        Initialize GeneSurvDataset class
+        Dataset for labelled genetic data used in survival prediction
+
+        Args:
+            info: pandas.Dataframe, Contains ScoutID, RFS time of event (T), and event indicator (E) values,
+            and binary genetic markers
+        """
+        self.info = info
+        self.scoutid = np.asarray(self.info['ScoutID'])
+        self.event = np.asarray(self.info['RFS_Code'])
+        self.time = np.asarray(self.info['RFS'])
+
+        gene_start = self.info.columns.get_loc('RFS') + 1
+        self.genes = np.asarray(self.info.iloc[:, gene_start:])
+        self.num_genes = self.genes.shape[1]
+
+    def __getitem__(self, index):
+        g_tensor = torch.from_numpy(self.genes[index])
+        e_tensor = torch.Tensor([self.event[index]]).int()
+        t_tensor = torch.Tensor([self.time[index]])
+
+        return g_tensor, t_tensor, e_tensor
 
     def __len__(self):
         return len(self.event)
