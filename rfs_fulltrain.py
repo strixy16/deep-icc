@@ -15,11 +15,11 @@ from rfs_utils import *
 from rfs_models import *
 
 parser = argparse.ArgumentParser(description='Training variables:')
-parser.add_argument('--batchsize', default=16, type=int, help='Number of samples used for each training cycle')
+parser.add_argument('--batchsize', default=32, type=int, help='Number of samples used for each training cycle')
 parser.add_argument('--datadir', default='/media/katy/Data/ICC/Data', type=str, help='Full path to the Data directory '
                                                                                      'where images, labels, are stored'
                                                                                      'and output will be saved.')
-parser.add_argument('--epochs', default=10, type=int, help='Number of training epochs to run')
+parser.add_argument('--epochs', default=100, type=int, help='Number of training epochs to run')
 parser.add_argument('--imdim', default=256, type=int, help='Dimension of image to load')
 parser.add_argument('--learnrate', default=1e-5, type=float, help='Starting learning rate for training')
 parser.add_argument('--modelname', default='CholClassifier34', type=str, help='Name of model type to build and train. '
@@ -198,7 +198,7 @@ def train_ct_and_gene():
                 save_error(train_ci=ciMeter.avg, coxLoss=coxLossMeter.avg,
                            variance=varMeter.avg, epoch=epoch, slname=save_eval_fname)
 
-    if args.saveplots:
+    if not args.testing:
         plot_coxloss(save_eval_fname, model._get_name(), valid=args.validation, save=args.saveplots)
         plot_concordance(save_eval_fname, model._get_name(), valid=args.validation, save=args.saveplots)
 
