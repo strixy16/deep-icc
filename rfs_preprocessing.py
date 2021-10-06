@@ -52,7 +52,11 @@ class CTSurvDataset(Dataset):
 
         X_tensor = torch.from_numpy(img)
 
-        return X_tensor, t_tensor, e_tensor
+        # Adding fname so can figure out which slice this is
+        # Making it a list so DataLoader works properly
+        fname = [self.fname[index]]
+
+        return X_tensor, t_tensor, e_tensor, fname
 
     def __len__(self):
         return len(self.event)
@@ -179,9 +183,13 @@ def load_chol_tumor(data_dir="../Data/", imdim=256, scanthresh=300, split=0.8, b
         valid_dataset = CTSurvDataset(filtered_info, z_img_path, valid_idx, imdim)
         test_dataset = CTSurvDataset(filtered_info, z_img_path, test_idx, imdim)
 
-        train_loader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size)  # ,drop_last=True)
+        # Setting up DataLoader for train, validation and test data
+        # Shuffling training/validation data so slices from same patient are not passed in next to each other
+        train_loader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size)
+        # Dropping last to prevent a batch with no 0 events
         valid_loader = DataLoader(valid_dataset, shuffle=True, batch_size=batch_size, drop_last=True)
-        test_loader = DataLoader(test_dataset, shuffle=True, batch_size=batch_size, drop_last=True)
+        # Not shuffling test because it doesn't matter, dropping last to prevent a batch with no 0 events
+        test_loader = DataLoader(test_dataset, shuffle=False, batch_size=batch_size, drop_last=True)
 
         return train_loader, valid_loader, test_loader
 
@@ -193,8 +201,11 @@ def load_chol_tumor(data_dir="../Data/", imdim=256, scanthresh=300, split=0.8, b
         train_dataset = CTSurvDataset(filtered_info, z_img_path, train_idx, imdim)
         test_dataset = CTSurvDataset(filtered_info, z_img_path, test_idx, imdim)
 
-        train_loader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size) # ,drop_last=True)
-        test_loader = DataLoader(test_dataset, shuffle=True, batch_size=batch_size, drop_last=True)
+        # Setting up DataLoader for train and test data
+        # Shuffling training data so slices from same patient are not passed in next to each other
+        train_loader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size)
+        # Not shuffling test because it doesn't matter, dropping last to prevent a batch with no 0 events
+        test_loader = DataLoader(test_dataset, shuffle=False, batch_size=batch_size, drop_last=True)
 
         return train_loader, test_loader
 
@@ -244,9 +255,13 @@ def load_chol_tumor_w_gene(data_dir="../Data/", imdim=256, scanthresh=300, split
         valid_dataset = CTGeneDataset(filtered_info, z_img_path, valid_idx, imdim)
         test_dataset = CTGeneDataset(filtered_info, z_img_path, test_idx, imdim)
 
-        train_loader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size)  # ,drop_last=True)
+        # Setting up DataLoader for train, validation and test data
+        # Shuffling training/validation data so slices from same patient are not passed in next to each other
+        train_loader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size)
+        # Dropping last to prevent a batch with no 0 events
         valid_loader = DataLoader(valid_dataset, shuffle=True, batch_size=batch_size, drop_last=True)
-        test_loader = DataLoader(test_dataset, shuffle=True, batch_size=batch_size, drop_last=True)
+        # Not shuffling test because it doesn't matter, dropping last to prevent a batch with no 0 events
+        test_loader = DataLoader(test_dataset, shuffle=False, batch_size=batch_size, drop_last=True)
 
         return train_loader, valid_loader, test_loader
 
@@ -258,8 +273,11 @@ def load_chol_tumor_w_gene(data_dir="../Data/", imdim=256, scanthresh=300, split
         train_dataset = CTGeneDataset(filtered_info, z_img_path, train_idx, imdim)
         test_dataset = CTGeneDataset(filtered_info, z_img_path, test_idx, imdim)
 
-        train_loader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size) # ,drop_last=True)
-        test_loader = DataLoader(test_dataset, shuffle=True, batch_size=batch_size, drop_last=True)
+        # Setting up DataLoader for train and test data
+        # Shuffling training data so slices from same patient are not passed in next to each other
+        train_loader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size)
+        # Not shuffling test because it doesn't matter, dropping last to prevent a batch with no 0 events
+        test_loader = DataLoader(test_dataset, shuffle=False, batch_size=batch_size, drop_last=True)
 
         return train_loader, test_loader
 
