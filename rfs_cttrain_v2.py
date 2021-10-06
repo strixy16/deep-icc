@@ -6,6 +6,7 @@ import os
 # from optuna.trial import TrialState
 # import pickle
 # from sklearn.model_selection import KFold
+import matplotlib as plt
 from skimage.color import gray2rgb
 # import torch.optim as optim
 # from torch.utils.data import DataLoader
@@ -15,7 +16,7 @@ from rfs_utils import *
 from rfs_models import *
 
 parser = argparse.ArgumentParser(description='Training variables:')
-parser.add_argument('--batchsize', default=16, type=int, help='Number of samples used for each training cycle')
+parser.add_argument('--batchsize', default=32, type=int, help='Number of samples used for each training cycle')
 parser.add_argument('--datadir', default='/media/katy/Data/ICC/Data', type=str, help='Full path to the Data directory '
                                                                                      'where images, labels, are stored'
                                                                                      'and output will be saved.')
@@ -26,7 +27,7 @@ parser.add_argument('--modelname', default='Resnet34', type=str, help='Name of m
                                                                       'CNN ptions are KT6Model, DeepConvSurv'
                                                                       'Resnet18, Resnet34')
 parser.add_argument('--randseed', default=16, type=int, help='Random seed for reproducibility')
-parser.add_argument('--scanthresh', default=300, type=int, help='Threshold for number of tumour pixels to filter images'
+parser.add_argument('--scanthresh', default=500, type=int, help='Threshold for number of tumour pixels to filter images'
                                                                 ' through')
 parser.add_argument('--validation', default=1, type=int, help='Whether to use a validation set with train and test')
 parser.add_argument('--split', default=0.8, type=float, help='Fraction of data to use for training (ex. 0.8)')
@@ -102,10 +103,19 @@ def train_ct():
 
         # Training phase
         model.train()
-        for X, y, e in train_loader:
+        for X, y, e, _ in train_loader:
             # X = CT image
             # y = time to event
             # e = event indicator
+            # _ is ignoring the slice file name, not needed here
+
+            # To view images to ensure proper loading
+            # for imnum in range(0, args.batchsize):
+            #     plt.imshow(X[imnum][0])
+            #     plt.show()
+            #     print(imnum)
+            #     # Place breakpoint here to loop through images
+            #     print()
 
             # ResNet models expect an RGB image, so a 3 channel version of the CT image is generated here
             # (CholClassifier contains a ResNet component, so included here as well)
@@ -143,10 +153,11 @@ def train_ct():
             # Initialize/reset value holders for validation loss, c-index
             valLossMeter = AverageMeter()
             ciValMeter = AverageMeter()
-            for val_X, val_y, val_e in valid_loader:
+            for val_X, val_y, val_e, _ in valid_loader:
                 # val_X = CT image
                 # val_y = time to event
                 # val_e = event indicator
+                # _ is ignoring the slice file name, not needed here
 
                 # ResNet models expect an RGB image, so a 3 channel version of the CT image is generated here
                 # (CholClassifier contains a ResNet component, so included here as well)
@@ -203,7 +214,8 @@ def train_ct():
     model.eval()
     testLossMeter = AverageMeter()
     ciTestMeter = AverageMeter()
-    for test_X, test_y, test_e in test_loader:
+    labelComp = pd.DataFrame(columns=['Slice_File_Name', 'Actual', 'Predicted'])
+    for test_X, test_y, test_e, test_slice_fname in test_loader:
         # test_X = CT image
         # test_y = time to event
         # test_e = event indicator
@@ -230,6 +242,8 @@ def train_ct():
 
         test_ci = c_index(test_risk_pred, test_y, test_e)
         ciTestMeter.update(test_ci.item(), test_y.size(0))
+
+
 
     print('Test Loss: {:.4f} \t Test CI: {:.4f}'.format(testLossMeter.avg, ciTestMeter.avg))
 
