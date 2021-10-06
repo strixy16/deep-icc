@@ -20,7 +20,7 @@ parser.add_argument('--batchsize', default=32, type=int, help='Number of samples
 parser.add_argument('--datadir', default='/media/katy/Data/ICC/Data', type=str, help='Full path to the Data directory '
                                                                                      'where images, labels, are stored'
                                                                                      'and output will be saved.')
-parser.add_argument('--epochs', default=10, type=int, help='Number of training epochs to run')
+parser.add_argument('--epochs', default=500, type=int, help='Number of training epochs to run')
 parser.add_argument('--imdim', default=256, type=int, help='Dimension of image to load')
 parser.add_argument('--learnrate', default=1e-5, type=float, help='Starting learning rate for training')
 parser.add_argument('--modelname', default='Resnet34', type=str, help='Name of model type to build and train. '
@@ -30,12 +30,12 @@ parser.add_argument('--randseed', default=16, type=int, help='Random seed for re
 parser.add_argument('--scanthresh', default=500, type=int, help='Threshold for number of tumour pixels to filter images'
                                                                 ' through')
 parser.add_argument('--validation', default=1, type=int, help='Whether to use a validation set with train and test')
-parser.add_argument('--split', default=0.8, type=float, help='Fraction of data to use for training (ex. 0.8)')
+parser.add_argument('--split', default=0.9, type=float, help='Fraction of data to use for training (ex. 0.8)')
 parser.add_argument('--valid_split', default=0.2, type=float, help='Fraction of training data to use for hold out '
                                                                    'validation (ex. 0.2)')
 parser.add_argument('--saveplots', default=True, type=bool, help='What to do with plots of evaluation values over model'
                                                                  'training. If false, will display plots instead.')
-parser.add_argument('--testing', default=False, type=bool, help='Set this to disable saving output (e.g. plots, '
+parser.add_argument('--testing', default=True, type=bool, help='Set this to disable saving output (e.g. plots, '
                                                                 'parameters). For use while testing script.')
 
 
@@ -45,7 +45,7 @@ def train_ct():
 
     # Utilize GPUs for Tensor computations if available
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
+    # device = "cpu"
     # Get input arguments (either from defaults or input when this function is called from terminal)
     args = parser.parse_args()
 
@@ -70,6 +70,9 @@ def train_ct():
 
         # Setting up file to save out final values
         save_final_fname = os.path.join(out_path, 'final_results.csv')
+
+        # Setting up file to save out actual/predicted test label
+        save_label_fname = os.path.join(out_path, 'label_comparison.csv')
 
 
     ## DATA LOADING ##
@@ -215,10 +218,13 @@ def train_ct():
     testLossMeter = AverageMeter()
     ciTestMeter = AverageMeter()
     labelComp = pd.DataFrame(columns=['Slice_File_Name', 'Actual', 'Predicted'])
+
+    # Only going over each batch once
     for test_X, test_y, test_e, test_slice_fname in test_loader:
         # test_X = CT image
         # test_y = time to event
         # test_e = event indicator
+        # test_slice_fname = name of slice file
 
         # ResNet models expect an RGB image, so a 3 channel version of the CT image is generated here
         # (CholClassifier contains a ResNet component, so included here as well)
@@ -243,19 +249,26 @@ def train_ct():
         test_ci = c_index(test_risk_pred, test_y, test_e)
         ciTestMeter.update(test_ci.item(), test_y.size(0))
 
+        df_batch = pd.DataFrame(list(test_slice_fname), columns=['Slice_File_Name'])
+        df_batch['Actual'] = test_y.cpu().detach().numpy()
+        df_batch['Predicted'] = test_risk_pred.cpu().detach().numpy()
 
+        labelComp = labelComp.append(df_batch)
 
+    labelComp.sort_values(by=['Slice_File_Name'], inplace=True)
     print('Test Loss: {:.4f} \t Test CI: {:.4f}'.format(testLossMeter.avg, ciTestMeter.avg))
 
     if not args.testing:
         # Saving out Pytorch model as .pth file so it can be reloaded if successful
         savemodel(out_path, model)
+        labelComp.to_csv(save_label_fname, index=False)
 
         # Saving out final train/valid/test statistics at end of training
         if args.validation:
             save_final_result(train_ci=ciMeter.avg, val_ci=ciValMeter.avg, test_ci=ciTestMeter.avg,
                               coxLoss=coxLossMeter.avg, valCoxLoss=valLossMeter.avg, testCoxLoss=testLossMeter.avg,
                               slname=save_final_fname)
+
         else:
             save_final_result(train_ci=ciMeter.avg, test_ci=ciTestMeter.avg,
                               coxLoss=coxLossMeter.avg, testCoxLoss=testLossMeter.avg,
