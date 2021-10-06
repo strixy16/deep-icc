@@ -54,7 +54,7 @@ class CTSurvDataset(Dataset):
 
         # Adding fname so can figure out which slice this is
         # Making it a list so DataLoader works properly
-        fname = [self.fname[index]]
+        fname = self.fname[index]
 
         return X_tensor, t_tensor, e_tensor, fname
 
@@ -184,6 +184,9 @@ def load_chol_tumor(data_dir="../Data/", imdim=256, scanthresh=300, split=0.8, b
         train_idx, valid_idx, test_idx = pat_train_test_split(patnum, event, split,
                                                               valid=valid, valid_split_perc=valid_split,
                                                               seed=seed)
+        # Want to do testing with a single batch
+        test_batch = len(test_idx)
+
         # Set up data with custom Dataset class (in rfs_utils)
         train_dataset = CTSurvDataset(filtered_info, z_img_path, train_idx, imdim)
         valid_dataset = CTSurvDataset(filtered_info, z_img_path, valid_idx, imdim)
@@ -194,14 +197,16 @@ def load_chol_tumor(data_dir="../Data/", imdim=256, scanthresh=300, split=0.8, b
         train_loader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size)
         # Dropping last to prevent a batch with no 0 events
         valid_loader = DataLoader(valid_dataset, shuffle=True, batch_size=batch_size, drop_last=True)
-        # Dropping last to prevent a batch with no 0 events
-        test_loader = DataLoader(test_dataset, shuffle=True, batch_size=batch_size, drop_last=True)
+        test_loader = DataLoader(test_dataset, shuffle=True, batch_size=test_batch)
 
         return train_loader, valid_loader, test_loader
 
     else:
         # Split data into train and test sets
         train_idx, test_idx = pat_train_test_split(patnum, event, split, seed=seed)
+
+        # Want to do testing with a single batch
+        test_batch = len(test_idx)
 
         # Set up data with custom Dataset class (in rfs_utils)
         train_dataset = CTSurvDataset(filtered_info, z_img_path, train_idx, imdim)
@@ -210,8 +215,7 @@ def load_chol_tumor(data_dir="../Data/", imdim=256, scanthresh=300, split=0.8, b
         # Setting up DataLoader for train and test data
         # Shuffling data so slices from same patient are not passed in next to each other
         train_loader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size)
-        # Dropping last to prevent a batch with no 0 events
-        test_loader = DataLoader(test_dataset, shuffle=True, batch_size=batch_size, drop_last=True)
+        test_loader = DataLoader(test_dataset, shuffle=True, batch_size=test_batch)
 
         return train_loader, test_loader
 
@@ -256,6 +260,10 @@ def load_chol_tumor_w_gene(data_dir="../Data/", imdim=256, scanthresh=300, split
         train_idx, valid_idx, test_idx = pat_train_test_split(patnum, event, split,
                                                               valid=valid, valid_split_perc=valid_split,
                                                               seed=seed)
+
+        # Want to do testing with a single batch
+        test_batch = len(test_idx)
+
         # Set up data with custom Dataset class (in rfs_utils)
         train_dataset = CTGeneDataset(filtered_info, z_img_path, train_idx, imdim)
         valid_dataset = CTGeneDataset(filtered_info, z_img_path, valid_idx, imdim)
@@ -266,14 +274,16 @@ def load_chol_tumor_w_gene(data_dir="../Data/", imdim=256, scanthresh=300, split
         train_loader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size)
         # Dropping last to prevent a batch with no 0 events
         valid_loader = DataLoader(valid_dataset, shuffle=True, batch_size=batch_size, drop_last=True)
-        # Dropping last to prevent a batch with no 0 events
-        test_loader = DataLoader(test_dataset, shuffle=True, batch_size=batch_size, drop_last=True)
+        test_loader = DataLoader(test_dataset, shuffle=True, batch_size=test_batch)
 
         return train_loader, valid_loader, test_loader
 
     else:
         # Split data into train and test sets
         train_idx, test_idx = pat_train_test_split(patnum, event, split, seed=seed)
+
+        # Want to do testing with a single batch
+        test_batch = len(test_idx)
 
         # Set up data with custom Dataset class (in rfs_utils)
         train_dataset = CTGeneDataset(filtered_info, z_img_path, train_idx, imdim)
@@ -282,8 +292,7 @@ def load_chol_tumor_w_gene(data_dir="../Data/", imdim=256, scanthresh=300, split
         # Setting up DataLoader for train and test data
         # Shuffling data so slices from same patient are not passed in next to each other
         train_loader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size)
-        # Dropping last to prevent a batch with no 0 events
-        test_loader = DataLoader(test_dataset, shuffle=True, batch_size=batch_size, drop_last=True)
+        test_loader = DataLoader(test_dataset, shuffle=True, batch_size=test_batch)
 
         return train_loader, test_loader
 
