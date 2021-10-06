@@ -109,7 +109,7 @@ def train_ct_and_gene():
 
         # Training phase
         model.train()
-        for X, g, y, e in train_loader:
+        for X, g, y, e, _ in train_loader:
             # X = CT image
             # g = genetic markers
             # y = time to event
@@ -150,7 +150,7 @@ def train_ct_and_gene():
             # Initialize/reset value holders for validation loss, c-index
             valLossMeter = AverageMeter()
             ciValMeter = AverageMeter()
-            for val_X, val_g, val_y, val_e in valid_loader:
+            for val_X, val_g, val_y, val_e, _ in valid_loader:
                 # val_X = CT image
                 # val_g = genetic markers
                 # val_y = time to event
@@ -207,7 +207,7 @@ def train_ct_and_gene():
     # Initialize value holders for testing loss, c-index
     testLossMeter = AverageMeter()
     ciTestMeter = AverageMeter()
-    for test_X, test_g, test_y, test_e in test_loader:
+    for test_X, test_g, test_y, test_e, _ in test_loader:
         # test_X = CT image
         # test_g = genetic markers
         # test_y = time to event

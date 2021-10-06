@@ -86,6 +86,8 @@ class GeneSurvDataset(Dataset):
         e_tensor = torch.Tensor([self.event[index]]).int()
         t_tensor = torch.Tensor([self.time[index]])
 
+        # No fname returned in this class because the data is associated to scoutID's, not slice files
+
         return g_tensor, t_tensor, e_tensor
 
     def __len__(self):
@@ -135,7 +137,11 @@ class CTGeneDataset(Dataset):
 
         g_tensor = torch.from_numpy(self.genes[index])
 
-        return X_tensor, g_tensor, t_tensor, e_tensor
+        # Adding fname so can figure out which slice this is
+        # Making it a list so DataLoader works properly
+        fname = [self.fname[index]]
+
+        return X_tensor, g_tensor, t_tensor, e_tensor, fname
 
     def __len__(self):
         return len(self.event)
