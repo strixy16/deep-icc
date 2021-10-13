@@ -29,11 +29,10 @@ parser.add_argument('--modelname', default='Resnet18', type=str, help='Name of m
 parser.add_argument('--randseed', default=16, type=int, help='Random seed for reproducibility')
 parser.add_argument('--scanthresh', default=300, type=int, help='Threshold for number of tumour pixels to filter images'
                                                                 ' through')
-parser.add_argument('--validation', default=0, type=int, help='Select validation method from list: '
-                                                              '0: hold out, 1: k-fold')
-parser.add_argument('--split', default=0.8, type=float, help='Fraction of data to use for training (ex. 0.8) with'
-                                                             'hold-out validation')
-parser.add_argument('--kfold_num', default=5, type=int, help='If using k-fold cross validation, supply k value')
+parser.add_argument('--validation', default=1, type=int, help='Whether to use a validation set with train and test')
+parser.add_argument('--split', default=0.9, type=float, help='Fraction of data to use for training (ex. 0.8)')
+parser.add_argument('--valid_split', default=0.2, type=float, help='Fraction of training data to use for hold out '
+                                                                   'validation (ex. 0.2)')
 parser.add_argument('--verbose', default=1, type=int, help='Levels of output: 0: none, 1: training output')
 parser.add_argument('--plots', default=True, type=bool, help='Save plots of evaluation values over model training')
 
@@ -63,66 +62,29 @@ def define_resnet(trial, resnet_type):
     return model
 
 
-# def load_chol_tumor(data_dir="../Data/", imdim=256, scanthresh=300, split=0.8, batch_size=32, seed=16):
-#     """
-#     Setting up data loading for cholangio tumour images and labels
-#
-#     Args:
-#         data_dir: string, path to Data directory containing Images and Labels
-#         imdim: int, size of image to load
-#         scanthresh: int, threshold for removeSmallScans (number of tumour pixels required)
-#         split: float, value for hold out validation, size of train set
-#         batch_size: int, number of samples per batch
-#         seed: int, random seed value
-#
-#     Returns:
-#         train_loader: DataLoader for train set
-#         val_loader: DataLoader for validation set
-#     """
-#     # Get paths to images and labels
-#     info_path = os.path.join(data_dir, 'Labels', str(imdim),'RFS_all_tumors_zero.csv')
-#     z_img_path = os.path.join(data_dir, 'Images/Tumors', str(imdim), 'Zero/')
-#
-#     info = pd.read_csv(info_path)
-#
-#     # Filter scans with mostly background in the image
-#     filtered_indices = removeSmallScans(info, z_img_path, imdim, scanthresh)
-#     filtered_info = info.iloc[filtered_indices]
-#
-#     patnum = np.asarray(filtered_info['Pat_ID'])
-#     event = np.asarray(filtered_info['RFS_Code'])
-#
-#     # Split data into train and validation sets
-#     train_idx, val_idx = pat_train_test_split(patnum, event, split, seed=seed)
-#
-#     # Set up data with custom Dataset class (in rfs_utils)
-#     train_dataset = CTSurvDataset(filtered_info, z_img_path, train_idx, imdim)
-#     val_dataset = CTSurvDataset(filtered_info, z_img_path, val_idx, imdim)
-#
-#     train_loader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size) # ,drop_last=True)
-#     val_loader = DataLoader(val_dataset, shuffle=True, batch_size=batch_size, drop_last=True)
-#
-#     return train_loader, val_loader
-
         
 def objective(trial):
 
     # Get DataLoader objects for train and validation sets
-    train_loader, val_loader = load_chol_tumor(args.datadir, imdim=args.imdim, scanthresh=args.scanthresh, split=args.split,
-                                               batch_size=args.batchsize, seed=args.randseed)
+    train_loader, val_loader, test_loader = load_chol_tumor(args.datadir, imdim=args.imdim, scanthresh=args.scanthresh,
+                                                            split=args.split, batch_size=args.batchsize, valid=True,
+                                                            valid_split=args.valid_split, seed=args.randseed)
 
     # Define model
-    if args.modelname == "Resnet18":
-        model = define_resnet(trial, resnet_type='18')
-    elif args.modelname == "Resnet34":
-        model = define_resnet(trial, resnet_type='34')
+    # if args.modelname == "Resnet18":
+    #     model = define_resnet(trial, resnet_type='18')
+    # elif args.modelname == "Resnet34":
+    #     model = define_resnet(trial, resnet_type='34')
+    #
+    # model.to(device)
 
-    model.to(device)
+    model = select_model(args.modelname, device)
 
     # Setting up training hyperparameters
-    optimizer_name = trial.suggest_categorical("optimizer", ["Adam", "SGD"])
     lr = trial.suggest_float("lr", 1e-5, 1e-3, log=True)
-    optimizer = getattr(optim, optimizer_name)(model.parameters(), lr=lr)
+    # optimizer_name = trial.suggest_categorical("optimizer", ["Adam", "SGD"])
+    # optimizer = getattr(optim, optimizer_name)(model.parameters(), lr=lr)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     criterion = NegativeLogLikelihood(device)
 
     print("Trial:", trial.number)
@@ -228,7 +190,7 @@ if __name__ == "__main__":
 
 
     study = optuna.create_study(direction="maximize")
-    study.optimize(objective, n_trials=100)
+    study.optimize(objective, n_trials=25)
 
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
     complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
