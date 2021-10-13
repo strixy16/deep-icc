@@ -107,7 +107,7 @@ class DeepConvSurv(nn.Module):
 
 
 class ResNet(nn.Module):
-    def __init__(self, resnet_type, l2=256, l3=128, d1=0, d2=0):
+    def __init__(self, resnet_type, l2=400, l3=160, d1=0.25, d2=0.6):
         super(ResNet, self).__init__()
         res_model = ''
         if resnet_type == '18':
@@ -204,7 +204,7 @@ class DeepSurvGene(nn.Module):
 
 
 class CholClassifier(nn.Module):
-    def __init__(self, resnet_type, num_genes, l2=256, l3=128, d1=0.2, d2=0, d3=0.375):
+    def __init__(self, resnet_type, num_genes, l2=256, l3=128, d1=0.2, d2=0.375):
         super(CholClassifier, self).__init__()
         res_model = ''
         if resnet_type == '18':
@@ -232,7 +232,7 @@ class CholClassifier(nn.Module):
             nn.Linear(num_genes, 4),
             nn.BatchNorm1d(4),
             nn.SELU(),
-            nn.Dropout(d3),
+            nn.Dropout(d2),
             nn.Linear(4, 4),
             nn.BatchNorm1d(4),
             nn.SELU()
