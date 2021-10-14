@@ -100,7 +100,7 @@ def train_ct_and_gene(config, checkpoint_dir=None, data_dir=None):
     print("Finished Training")
 
 
-def test_ct_and_gene(model, device="cpu", data_dir=None):
+def test_ct_and_gene(model, device, data_dir=None):
     _, test_loader = load_chol_tumor_w_gene(data_dir,
                                             imdim=args.imdim,
                                             scanthresh=args.scanthresh,
@@ -180,11 +180,13 @@ def main(num_samples=10, gpus_per_trial=1):
     if args.modelname == 'CholClassifier18':
         best_trained_model = CholClassifier('18', 18, l2=best_trial.config['l2'], l3=best_trial.config['l3'],
                                             l4=best_trial.config['l4'], l5=best_trial.config['l5'],
-                                            d1=best_trial.['d1'], d2=best_trial.['d2'])
+                                            d1=best_trial.config['d1'], d2=best_trial.config['d2'])
     elif args.modelname == 'CholClassifier34':
-        best_trained_model = CholClassifier('34', 18, l2=config['l2'], l3=config['l3'], l4=config['l4'], l5=config['l5'],
-                               d1=['d1'], d2=['d2'])
-
+        best_trained_model = CholClassifier('34', 18, l2=best_trial.config['l2'], l3=best_trial.config['l3'],
+                                            l4=best_trial.config['l4'], l5=best_trial.config['l5'],
+                                            d1=['d1'], d2=['d2'])
+    else:
+        raise Exception('Invalid model type name. Must be CholClassifier.')
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     best_trained_model.to(device)
