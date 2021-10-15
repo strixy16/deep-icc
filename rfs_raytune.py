@@ -90,14 +90,16 @@ def train_ct_and_gene(config, checkpoint_dir=None, data_dir=None):
             cox_loss.backward()
             optimizer.step()
 
-        print('Epoch: {} \t Train Loss: {:.4f} \t Train CI: {:.4f}'.format(epoch, coxLossMeter.avg, ciMeter.avg))
+        # print('Epoch: {} \t Train Loss: {:.4f} \t Train CI: {:.4f}'.format(epoch, coxLossMeter.avg, ciMeter.avg))
 
+        print(tune.checkpoint_dir(epoch))
         with tune.checkpoint_dir(epoch) as checkpoint_dir:
             path = os.path.join(checkpoint_dir, "checkpoint")
             torch.save((model.state_dict(), optimizer.state_dict()), path)
 
         tune.report(loss=coxLossMeter.avg, c_index=ciMeter.avg)
     print("Finished Training")
+    torch.cuda.empty_cache()
 
 
 def test_ct_and_gene(model, device, data_dir=None):
@@ -109,6 +111,7 @@ def test_ct_and_gene(model, device, data_dir=None):
                                             valid=False,
                                             seed=args.randseed)
 
+    criterion = NegativeLogLikelihood(device)
     model.eval()
     # Initialize value holders for testing loss, c-index
     testLossMeter = AverageMeter()
@@ -137,18 +140,19 @@ def test_ct_and_gene(model, device, data_dir=None):
         test_risk_pred = model(test_X, test_g)
 
         # Calculate loss and evaluation metrics
-        test_cox_loss = NegativeLogLikelihood(-test_risk_pred, test_y, test_e, model)
+        test_cox_loss = criterion(-test_risk_pred, test_y, test_e, model)
         testLossMeter.update(test_cox_loss.item(), test_y.size(0))
 
         test_ci = c_index(test_risk_pred, test_y, test_e)
         ciTestMeter.update(test_ci.item(), test_y.size(0))
 
-    print('Test Loss: {:.4f} \t Test CI: {:.4f}'.format(testLossMeter.avg, ciTestMeter.avg))
-    return ciTestMeter.avg
+    # print('Test Loss: {:.4f} \t Test CI: {:.4f}'.format(testLossMeter.avg, ciTestMeter.avg))
+    return testLossMeter.avg, ciTestMeter.avg
 
 
 def main(num_samples=10, gpus_per_trial=1):
     data_dir = args.datadir
+    ray_dir = os.path.join(data_dir, 'ray_results')
 
     config = {
         "l2": tune.sample_from(lambda _: 2**np.random.randint(2, 9)),
@@ -166,11 +170,14 @@ def main(num_samples=10, gpus_per_trial=1):
 
     result = tune.run(
         partial(train_ct_and_gene, data_dir=data_dir),
-        resources_per_trial={"cpu": 2, "gpu": gpus_per_trial},
-        config=config,
-        num_samples=num_samples,
-        progress_reporter=reporter
+        resources_per_trial={"cpu": 4, "gpu": gpus_per_trial},
+        config=config,  # Dictionary of hyperparameters to tune
+        local_dir=ray_dir, # Where to save checkpoints
+        num_samples=num_samples, # Number of trials to run
+        progress_reporter=reporter # Reporter to display updates during training
     )
+
+    torch.cuda.empty_cache()
 
     best_trial = result.get_best_trial("c_index", "max", "last")
     print("Best trial config: {}".format(best_trial.config))
@@ -184,7 +191,7 @@ def main(num_samples=10, gpus_per_trial=1):
     elif args.modelname == 'CholClassifier34':
         best_trained_model = CholClassifier('34', 18, l2=best_trial.config['l2'], l3=best_trial.config['l3'],
                                             l4=best_trial.config['l4'], l5=best_trial.config['l5'],
-                                            d1=['d1'], d2=['d2'])
+                                            d1=best_trial.config['d1'], d2=best_trial.config['d2'])
     else:
         raise Exception('Invalid model type name. Must be CholClassifier.')
 
@@ -195,9 +202,10 @@ def main(num_samples=10, gpus_per_trial=1):
     model_state, optimizer_state = torch.load(os.path.join(best_checkpoint_dir, "checkpoint"))
     best_trained_model.load_state_dict(model_state)
 
-    test_c_index = test_ct_and_gene(best_trained_model, device, data_dir)
+    test_loss, test_c_index = test_ct_and_gene(best_trained_model, device, data_dir)
+    print("Best trial test loss: {}".format(test_loss))
     print("Best trial test set c-index: {}".format(test_c_index))
 
 
 if __name__ == "__main__":
-    main(num_samples=10, gpus_per_trial=1)
+    main(num_samples=2, gpus_per_trial=1)
