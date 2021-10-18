@@ -1,8 +1,5 @@
 from functools import partial
-import numpy as np
-import os
 from skimage.color import gray2rgb
-import torch
 import torch.optim as optim
 from ray import tune
 from ray.tune import CLIReporter
@@ -208,4 +205,4 @@ def main(num_samples=10, gpus_per_trial=1):
 
 
 if __name__ == "__main__":
-    main(num_samples=2, gpus_per_trial=1)
+    main(num_samples=10, gpus_per_trial=1)
