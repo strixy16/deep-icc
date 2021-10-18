@@ -7,6 +7,7 @@ import os
 # import pickle
 # from sklearn.model_selection import KFold
 import matplotlib as plt
+import torch.cuda
 from skimage.color import gray2rgb
 # import torch.optim as optim
 # from torch.utils.data import DataLoader
@@ -22,7 +23,7 @@ parser.add_argument('--datadir', default='/media/katy/Data/ICC/Data', type=str, 
                                                                                      'and output will be saved.')
 parser.add_argument('--epochs', default=500, type=int, help='Number of training epochs to run')
 parser.add_argument('--imdim', default=256, type=int, help='Dimension of image to load')
-parser.add_argument('--learnrate', default=1e-5, type=float, help='Starting learning rate for training')
+parser.add_argument('--learnrate', default=0.0003, type=float, help='Starting learning rate for training')
 parser.add_argument('--modelname', default='Resnet34', type=str, help='Name of model type to build and train. '
                                                                       'CNN ptions are KT6Model, DeepConvSurv'
                                                                       'Resnet18, Resnet34')
@@ -35,13 +36,13 @@ parser.add_argument('--valid_split', default=0.2, type=float, help='Fraction of 
                                                                    'validation (ex. 0.2)')
 parser.add_argument('--saveplots', default=True, type=bool, help='What to do with plots of evaluation values over model'
                                                                  'training. If false, will display plots instead.')
-parser.add_argument('--testing', default=True, type=bool, help='Set this to disable saving output (e.g. plots, '
+parser.add_argument('--testing', default=False, type=bool, help='Set this to disable saving output (e.g. plots, '
                                                                 'parameters). For use while testing script.')
 
 
 def train_ct():
     ## PRELIMINARY SETUP ##
-    global args, device
+    global args
 
     # Utilize GPUs for Tensor computations if available
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -93,6 +94,9 @@ def train_ct():
     ## MODEL SETUP ##
     # Select which model architecture to build
     model = select_model(args.modelname, device)
+    if type(model) != KT6Model or type(model) != DeepConvSurv or type(model) != ResNet:
+        raise Exception("This function can only use models that take image data as inputs "
+                        "(e.g. KT6, DeepConvSurv, ResNet)")
     # Setting optimization method and loss function
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learnrate)
     criterion = NegativeLogLikelihood(device)
