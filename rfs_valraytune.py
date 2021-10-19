@@ -215,7 +215,7 @@ def main(num_samples=10, gpus_per_trial=1):
     best_trial = result.get_best_trial("val_cind", "max", "last")
     print("Best trial config: {}".format(best_trial.config))
     print("Best trial final validation loss: {}".format(best_trial.last_result["val_loss"]))
-    print("Best trial final validation c-index: {}".format(best_trial.last_result["val_c_ind"]))
+    print("Best trial final validation c-index: {}".format(best_trial.last_result["val_cind"]))
 
     if args.modelname == 'CholClassifier18':
         best_trained_model = CholClassifier('18', 18, l2=best_trial.config['l2'], l3=best_trial.config['l3'],
