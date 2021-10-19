@@ -204,7 +204,7 @@ class DeepSurvGene(nn.Module):
 
 
 class CholClassifier(nn.Module):
-    def __init__(self, resnet_type, num_genes, l2=256, l3=128, d1=0.2, d2=0.375):
+    def __init__(self, resnet_type, num_genes, l2=256, l3=128, l4=4, l5=4, d1=0.2, d2=0.375):
         super(CholClassifier, self).__init__()
         res_model = ''
         if resnet_type == '18':
@@ -229,16 +229,16 @@ class CholClassifier(nn.Module):
         )
 
         self.gene = nn.Sequential(
-            nn.Linear(num_genes, 4),
-            nn.BatchNorm1d(4),
+            nn.Linear(num_genes, l4),
+            nn.BatchNorm1d(l4),
             nn.SELU(),
             nn.Dropout(d2),
-            nn.Linear(4, 4),
-            nn.BatchNorm1d(4),
+            nn.Linear(l4, l5),
+            nn.BatchNorm1d(l5),
             nn.SELU()
         )
 
-        self.final = nn.Linear(l3 + 4, 1)
+        self.final = nn.Linear(l3 + l5, 1)
 
     def forward(self, img, genes):
         img = self.res(img)
