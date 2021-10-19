@@ -1,11 +1,8 @@
-import argparse
+
+import contextlib
 from datetime import datetime
 import json
 import os
-# import optuna
-# from optuna.trial import TrialState
-# import pickle
-# from sklearn.model_selection import KFold
 from skimage.color import gray2rgb
 # import torch.optim as optim
 # from torch.utils.data import DataLoader
@@ -13,40 +10,18 @@ from skimage.color import gray2rgb
 from rfs_preprocessing import *
 from rfs_utils import *
 from rfs_models import *
-
-parser = argparse.ArgumentParser(description='Training variables:')
-parser.add_argument('--batchsize', default=32, type=int, help='Number of samples used for each training cycle')
-parser.add_argument('--datadir', default='/media/katy/Data/ICC/Data', type=str, help='Full path to the Data directory '
-                                                                                     'where images, labels, are stored'
-                                                                                     'and output will be saved.')
-parser.add_argument('--epochs', default=100, type=int, help='Number of training epochs to run')
-parser.add_argument('--imdim', default=256, type=int, help='Dimension of image to load')
-parser.add_argument('--learnrate', default=1e-5, type=float, help='Starting learning rate for training')
-parser.add_argument('--modelname', default='CholClassifier34', type=str, help='Name of model type to build and train. '
-                                                                              'Options for gene + image network are'
-                                                                              'CholClassifier18, CholClassifier34')
-parser.add_argument('--randseed', default=16, type=int, help='Random seed for reproducibility')
-parser.add_argument('--scanthresh', default=300, type=int, help='Threshold for number of tumour pixels to filter images'
-                                                                ' through')
-parser.add_argument('--validation', default=1, type=int, help='Whether to use a validation set with train and test')
-parser.add_argument('--split', default=0.8, type=float, help='Fraction of data to use for training (ex. 0.8)')
-parser.add_argument('--valid_split', default=0.2, type=float, help='Fraction of training data to use for hold out '
-                                                                   'validation (ex. 0.2)')
-parser.add_argument('--saveplots', default=True, type=bool, help='What to do with plots of evaluation values over model '
-                                                                 'training. If false, will display plots instead.')
-parser.add_argument('--testing', default=True, type=bool, help='Set this to disable saving output (e.g. plots, '
-                                                               'parameters). For use while testing script.')
+import config as args
 
 
 def train_ct_and_gene():
     ## PRELIMINARY SETUP ##
-    global args, device
+    # global args, device
 
     # Utilize GPUs for Tensor computations if available
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     # Get input arguments (either from defaults or input when this function is called from terminal)
-    args = parser.parse_args()
+    # args = parser.parse_args()
 
     ## OUTPUT SETUP ##
     # Check if testing mode to see if output should be saved or not
@@ -62,7 +37,9 @@ def train_ct_and_gene():
         # Save out parameters used for the run
         save_param_fname = os.path.join(out_path, 'parameters.txt')
         with open(save_param_fname, 'w') as f:
-            json.dump(args.__dict__, f, indent=2)
+            with contextlib.redirect_stdout(f):
+                help(args)
+            # json.dump(dir(args), f, indent=2)
 
         # Setting up file to save out evaluation values to/load them from
         save_eval_fname = os.path.join(out_path, 'convergence.csv')
@@ -90,11 +67,19 @@ def train_ct_and_gene():
     # Need number of genes for first layer of FC architecture in CholClassifier models
     num_genes = train_loader.dataset.num_genes
     # Select which model architecture to build
-    model = select_model(args.modelname, device, num_genes=num_genes)
-
-    if type(model) != CholClassifier:
+    if args.modelname == 'CholClassifier18':
+        model = CholClassifier('18', num_genes, l2=256, l3=64, l4=16, l5=32, d1=0.19, d2=0.12).to(device)
+    elif args.modelname == 'CholClassifier34':
+        model = CholClassifier('34', num_genes).to(device)
+    else:
         raise Exception("This function can only use models that take image and genetic data as inputs "
-                        "(e.g. CholClassifier18)")
+                        "(e.g. CholClassifier18). Please update config.py.")
+
+    # model = select_model(args.modelname, device, num_genes=num_genes)
+    #
+    # if type(model) != CholClassifier:
+    #     raise Exception("This function can only use models that take image and genetic data as inputs "
+    #                     "(e.g. CholClassifier18). Please update config.py.")
 
     # Define loss function and optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learnrate)
