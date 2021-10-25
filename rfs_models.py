@@ -116,23 +116,23 @@ class SimpleCholangio(nn.Module):
         # Pool -> (?, 8, 20, 20)
         self.layer1 = nn.Sequential(
             nn.Conv2d(1, 32, kernel_size=7, stride=3),
-            nn.SELU(),
+            nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2),
             nn.Conv2d(32, 8, kernel_size=3, stride=1),
-            nn.SELU(),
+            nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2)
         )
         # L2 FC 32x20x20 inputs -> 32 outputs
         self.layer2 = nn.Sequential(
             nn.Linear(8*20*20, 256),
-            nn.SELU()
+            nn.ReLU()
         )
         # L3 final FC 32 inputs -> 1 output
         self.layer3 = nn.Linear(256, 1)
 
     def forward(self, x):
         out = self.layer1(x)
-        out = out.view(out.size(0), -1) # Flatten for FC
+        out = out.view(out.size(0), -1)   # Flatten for FC
         out = self.layer2(out)
         out = self.layer3(out)
         return out

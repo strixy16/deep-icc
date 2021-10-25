@@ -205,6 +205,8 @@ def select_model(modelname, device, num_genes=0):
         model = KT6Model().to(device)
     elif modelname == 'DeepConvSurv':
         model = DeepConvSurv().to(device)
+    elif modelname == 'SimpleCholangio':
+        model = SimpleCholangio().to(device)
     elif modelname == 'Resnet18':
         model = ResNet('18').to(device)
     elif modelname == 'Resnet34':
