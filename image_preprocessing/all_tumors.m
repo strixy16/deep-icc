@@ -33,6 +33,9 @@ function opt = all_tumors
     opt.ZeroCSV = strcat("/Users/katyscott/Documents/ICC/Data/Labels/", string(opt.ImageSize(1)), "/RFS_all_tumors_zero.csv");
     opt.NaNCSV = strcat("/Users/katyscott/Documents/ICC/Data/Labels/", string(opt.ImageSize(1)), "/RFS_all_tumors_NaN.csv");
     
+    opt.GeneZeroCSV = strcat("/Users/katyscott/Documents/ICC/Data/Labels/", string(opt.ImageSize(1)), "/RFS_gene_tumors_zero.csv");
+    opt.GeneNaNCSV = strcat("/Users/katyscott/Documents/ICC/Data/Labels/", string(opt.ImageSize(1)), "/RFS_all_tumors_NaN.csv");
+    
     opt.NoLabelZeroCSV = strcat("/Users/katyscott/Documents/ICC/Data/Labels/", string(opt.ImageSize(1)), "/nl_all_tumors_zero.csv");
     opt.NoLabelNaNCSV = strcat("/Users/katyscott/Documents/ICC/Data/Labels/", string(opt.ImageSize(1)), "/nl_all_tumors_NaN.csv");
 end
