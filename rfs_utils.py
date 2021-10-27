@@ -207,9 +207,9 @@ def select_model(modelname, device, num_genes=0):
         model = DeepConvSurv().to(device)
     elif modelname == 'SimpleCholangio':
         model = SimpleCholangio().to(device)
-    elif modelname == 'Resnet18':
+    elif modelname == 'ResNet18':
         model = ResNet('18').to(device)
-    elif modelname == 'Resnet34':
+    elif modelname == 'ResNet34':
         model = ResNet('34').to(device)
     elif modelname == 'DeepSurvGene':
         model = DeepSurvGene(num_genes).to(device)
