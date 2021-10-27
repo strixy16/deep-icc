@@ -9,6 +9,7 @@ import numpy as np
 import os
 import pandas as pd
 from scipy import ndimage
+from skimage.color import gray2rgb
 from sklearn.preprocessing import normalize
 from sklearn.model_selection import KFold
 import torch
@@ -18,7 +19,7 @@ from torchvision import transforms
 
 class CTSurvDataset(Dataset):
 
-    def __init__(self, info, img_path, idx, img_dim):
+    def __init__(self, info, img_path, idx, img_dim, makeRGB=False):
         """Initialize CTSurvDataset class
         Dataset for labelled CT images used in survival prediction
 
@@ -28,6 +29,7 @@ class CTSurvDataset(Dataset):
             img_path: string, path to folder containing image files listed in info
             idx: list, indices to include in this dataset (ex. indices of training data)
             img_dim: int, dimension of images
+            makeRGB: bool, whether to load images in and convert them to RGB 3 channel or leave as 1 channel
         """
 
         self.info = info.iloc[idx, :]
@@ -39,6 +41,7 @@ class CTSurvDataset(Dataset):
 
         self.img_path = img_path
         self.dim = img_dim
+        self.rgb = makeRGB
 
         # TODO: introduce MinMaxScaler and/or Normalization
         # do I actually need these?
@@ -53,11 +56,17 @@ class CTSurvDataset(Dataset):
         # Normalize values to be between 0 and 1 (requires 2D input, so reshape is used)
         norm_img = normalize(np.reshape(img, (self.dim, self.dim)))
 
-        # Reshape to a 3D array (channels, height, width)
-        img_3D = np.reshape(norm_img, (1, self.dim, self.dim))
+        if self.rgb:
+            rgb_img = gray2rgb(norm_img)
+            rgb_tensor = torch.from_numpy(rgb_img)
+            X_tensor = rgb_tensor.permute(2, 0, 1)
 
-        # Convert from np array to Tensor
-        X_tensor = torch.from_numpy(img_3D)
+        else:
+            # Reshape to a 3D array (channels, height, width)
+            img_3D = np.reshape(norm_img, (1, self.dim, self.dim))
+
+            # Convert from np array to Tensor
+            X_tensor = torch.from_numpy(img_3D)
 
         # Adding fname so can figure out which slice this is
         # Making it a list so DataLoader works properly
@@ -103,7 +112,7 @@ class GeneSurvDataset(Dataset):
 
 class CTGeneDataset(Dataset):
 
-    def __init__(self, info, img_path, idx, img_dim):
+    def __init__(self, info, img_path, idx, img_dim, makeRGB=False):
         """
         Initialize CTGeneDataset class
         Dataset for labelled CT images and corresponding genetic data used in survival prediction
@@ -115,6 +124,7 @@ class CTGeneDataset(Dataset):
             img_path: string, path to folder containing image files listed in info
             idx: list, indices to include in this dataset (ex. indices of training data)
             img_dim: int, dimension of images
+            makeRGB: bool, whether to load CT images in and convert them to RGB 3 channel or leave as 1 channel
         """
         self.info = info.iloc[idx, :]
         self.fname = np.asarray(self.info['File'])
@@ -158,7 +168,8 @@ class CTGeneDataset(Dataset):
         return len(self.event)
 
 
-def load_chol_tumor(data_dir="../Data/", imdim=256, scanthresh=300, split=0.8, batch_size=32, valid=False, valid_split=0.2, seed=16):
+def load_chol_tumor(data_dir="../Data/", imdim=256, scanthresh=300, split=0.8, batch_size=32, makeRGB=False,
+                    valid=False, valid_split=0.2, seed=16):
     """
     Setting up data loading for cholangio tumour images and labels
 
@@ -199,16 +210,16 @@ def load_chol_tumor(data_dir="../Data/", imdim=256, scanthresh=300, split=0.8, b
         test_batch = len(test_idx)
 
         # Set up data with custom Dataset class (in rfs_utils)
-        train_dataset = CTSurvDataset(filtered_info, z_img_path, train_idx, imdim)
-        valid_dataset = CTSurvDataset(filtered_info, z_img_path, valid_idx, imdim)
-        test_dataset = CTSurvDataset(filtered_info, z_img_path, test_idx, imdim)
+        train_dataset = CTSurvDataset(filtered_info, z_img_path, train_idx, imdim, makeRGB)
+        valid_dataset = CTSurvDataset(filtered_info, z_img_path, valid_idx, imdim, makeRGB)
+        test_dataset = CTSurvDataset(filtered_info, z_img_path, test_idx, imdim, makeRGB)
 
         # Setting up DataLoader for train, validation and test data
         # Shuffling data so slices from same patient are not passed in next to each other
         train_loader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size)
         # Dropping last to prevent a batch with no 0 events
         valid_loader = DataLoader(valid_dataset, shuffle=True, batch_size=batch_size, drop_last=True)
-        test_loader = DataLoader(test_dataset, shuffle=True, batch_size=test_batch)
+        test_loader = DataLoader(test_dataset, shuffle=True, batch_size=batch_size, drop_last=True)
 
         return train_loader, valid_loader, test_loader
 
@@ -220,13 +231,13 @@ def load_chol_tumor(data_dir="../Data/", imdim=256, scanthresh=300, split=0.8, b
         test_batch = len(test_idx)
 
         # Set up data with custom Dataset class (in rfs_utils)
-        train_dataset = CTSurvDataset(filtered_info, z_img_path, train_idx, imdim)
-        test_dataset = CTSurvDataset(filtered_info, z_img_path, test_idx, imdim)
+        train_dataset = CTSurvDataset(filtered_info, z_img_path, train_idx, imdim, makeRGB)
+        test_dataset = CTSurvDataset(filtered_info, z_img_path, test_idx, imdim, makeRGB)
 
         # Setting up DataLoader for train and test data
         # Shuffling data so slices from same patient are not passed in next to each other
         train_loader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size)
-        test_loader = DataLoader(test_dataset, shuffle=True, batch_size=test_batch)
+        test_loader = DataLoader(test_dataset, shuffle=True, batch_size=batch_size, drop_last=True)
 
         return train_loader, test_loader
 
@@ -304,8 +315,8 @@ def load_chol_tumor_w_gene(data_dir="../Data/", imdim=256, scanthresh=300, split
 
         # Setting up DataLoader for train and test data
         # Shuffling data so slices from same patient are not passed in next to each other
-        train_loader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size)
-        test_loader = DataLoader(test_dataset, shuffle=True, batch_size=batch_size, drop_last=True)
+        train_loader = DataLoader(train_dataset, shuffle=False, batch_size=batch_size)
+        test_loader = DataLoader(test_dataset, shuffle=False, batch_size=batch_size, drop_last=True)
 
         return train_loader, test_loader
 
