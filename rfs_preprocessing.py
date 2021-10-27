@@ -9,9 +9,11 @@ import numpy as np
 import os
 import pandas as pd
 from scipy import ndimage
+from sklearn.preprocessing import normalize
 from sklearn.model_selection import KFold
 import torch
 from torch.utils.data import Dataset, DataLoader
+from torchvision import transforms
 
 
 class CTSurvDataset(Dataset):
@@ -47,10 +49,15 @@ class CTSurvDataset(Dataset):
 
         # Load in CT bin image as numpy array
         img = np.fromfile(self.img_path + self.fname[index])
-        # Reshape to a 3D array (channels, height, width)
-        img = np.reshape(img, (1, self.dim, self.dim))
 
-        X_tensor = torch.from_numpy(img)
+        # Normalize values to be between 0 and 1 (requires 2D input, so reshape is used)
+        norm_img = normalize(np.reshape(img, (self.dim, self.dim)))
+
+        # Reshape to a 3D array (channels, height, width)
+        img_3D = np.reshape(norm_img, (1, self.dim, self.dim))
+
+        # Convert from np array to Tensor
+        X_tensor = torch.from_numpy(img_3D)
 
         # Adding fname so can figure out which slice this is
         # Making it a list so DataLoader works properly
@@ -130,10 +137,14 @@ class CTGeneDataset(Dataset):
 
         # Load in CT bin image as numpy array
         img = np.fromfile(self.img_path + self.fname[index])
-        # Reshape to a 3D array (channels, height, width)
-        img = np.reshape(img, (1, self.dim, self.dim))
+        # Normalize values to be between 0 and 1 (requires 2D input, so reshape is used)
+        norm_img = normalize(np.reshape(img, (self.dim, self.dim)))
 
-        X_tensor = torch.from_numpy(img)
+        # Reshape to a 3D array (channels, height, width)
+        img_3D = np.reshape(norm_img, (1, self.dim, self.dim))
+
+        # Convert from np array to Tensor
+        X_tensor = torch.from_numpy(img_3D)
 
         g_tensor = torch.from_numpy(self.genes[index])
 
@@ -262,6 +273,7 @@ def load_chol_tumor_w_gene(data_dir="../Data/", imdim=256, scanthresh=300, split
                                                               seed=seed)
 
         # Want to do testing with a single batch
+        # This is causing a problem with running out of GPU space
         test_batch = len(test_idx)
 
         # Set up data with custom Dataset class (in rfs_utils)
@@ -274,7 +286,7 @@ def load_chol_tumor_w_gene(data_dir="../Data/", imdim=256, scanthresh=300, split
         train_loader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size)
         # Dropping last to prevent a batch with no 0 events
         valid_loader = DataLoader(valid_dataset, shuffle=True, batch_size=batch_size, drop_last=True)
-        test_loader = DataLoader(test_dataset, shuffle=True, batch_size=test_batch)
+        test_loader = DataLoader(test_dataset, shuffle=True, batch_size=batch_size, drop_last=True)
 
         return train_loader, valid_loader, test_loader
 
@@ -283,6 +295,7 @@ def load_chol_tumor_w_gene(data_dir="../Data/", imdim=256, scanthresh=300, split
         train_idx, test_idx = pat_train_test_split(patnum, event, split, seed=seed)
 
         # Want to do testing with a single batch
+        # This is causing a problem with running out of GPU space
         test_batch = len(test_idx)
 
         # Set up data with custom Dataset class (in rfs_utils)
@@ -292,7 +305,7 @@ def load_chol_tumor_w_gene(data_dir="../Data/", imdim=256, scanthresh=300, split
         # Setting up DataLoader for train and test data
         # Shuffling data so slices from same patient are not passed in next to each other
         train_loader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size)
-        test_loader = DataLoader(test_dataset, shuffle=True, batch_size=test_batch)
+        test_loader = DataLoader(test_dataset, shuffle=True, batch_size=batch_size, drop_last=True)
 
         return train_loader, test_loader
 
@@ -470,5 +483,10 @@ def removeSmallScans(info, img_path, img_dim, thresh):
     return n_idx
 
 
-
+def torchNormalize(image):
+    # Function to normalize the image based on requirements defined for ResNet, GoogLeNet, AlexNet, etc.
+    # https://pytorch.org/hub/pytorch_vision_resnet/
+    norm = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    out = norm(image)
+    return out
 
