@@ -56,6 +56,7 @@ class CTSurvDataset(Dataset):
         # Normalize values to be between 0 and 1 (requires 2D input, so reshape is used)
         norm_img = normalize(np.reshape(img, (self.dim, self.dim)))
 
+        # Some models expect an RGB image, so a 3 channel version of the CT image is generated here
         if self.rgb:
             rgb_img = gray2rgb(norm_img)
             rgb_tensor = torch.from_numpy(rgb_img)
@@ -147,14 +148,22 @@ class CTGeneDataset(Dataset):
 
         # Load in CT bin image as numpy array
         img = np.fromfile(self.img_path + self.fname[index])
+
         # Normalize values to be between 0 and 1 (requires 2D input, so reshape is used)
         norm_img = normalize(np.reshape(img, (self.dim, self.dim)))
 
-        # Reshape to a 3D array (channels, height, width)
-        img_3D = np.reshape(norm_img, (1, self.dim, self.dim))
+        # Some models expect an RGB image, so a 3 channel version of the CT image is generated here
+        if self.rgb:
+            rgb_img = gray2rgb(norm_img)
+            rgb_tensor = torch.from_numpy(rgb_img)
+            X_tensor = rgb_tensor.permute(2, 0, 1)
 
-        # Convert from np array to Tensor
-        X_tensor = torch.from_numpy(img_3D)
+        else:
+            # Reshape to a 3D array (channels, height, width)
+            img_3D = np.reshape(norm_img, (1, self.dim, self.dim))
+
+            # Convert from np array to Tensor
+            X_tensor = torch.from_numpy(img_3D)
 
         g_tensor = torch.from_numpy(self.genes[index])
 
