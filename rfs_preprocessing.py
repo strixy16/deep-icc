@@ -10,6 +10,7 @@ import os
 import pandas as pd
 from scipy import ndimage
 from skimage.color import gray2rgb
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import normalize
 from sklearn.model_selection import KFold
 import torch
@@ -218,7 +219,7 @@ def load_chol_tumor(data_dir="../Data/", imdim=256, scanthresh=300, split=0.8, b
         # Want to do testing with a single batch
         test_batch = len(test_idx)
 
-        # Set up data with custom Dataset class (in rfs_utils)
+        # Set up data with custom Dataset class
         train_dataset = CTSurvDataset(filtered_info, z_img_path, train_idx, imdim, makeRGB)
         valid_dataset = CTSurvDataset(filtered_info, z_img_path, valid_idx, imdim, makeRGB)
         test_dataset = CTSurvDataset(filtered_info, z_img_path, test_idx, imdim, makeRGB)
@@ -247,6 +248,40 @@ def load_chol_tumor(data_dir="../Data/", imdim=256, scanthresh=300, split=0.8, b
         # Shuffling data so slices from same patient are not passed in next to each other
         train_loader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size)
         test_loader = DataLoader(test_dataset, shuffle=True, batch_size=batch_size, drop_last=True)
+
+        return train_loader, test_loader
+
+
+def load_chol_tumor_no_label(data_dir="../Data/", imdim=256, scanthresh=300, split=0.8, batch_size=32, makeRGB=False,
+                             valid=False, valid_split=0.2, seed=16):
+    # Get paths to images and labels
+    info_path = os.path.join(data_dir, 'Labels', str(imdim), 'nl_all_tumors_zero.csv')
+    z_img_path = os.path.join(data_dir, 'Images/Tumors', str(imdim), 'Zero/')
+
+    info = pd.read_csv(info_path)
+
+    # Filter scans with mostly background in the image
+    filtered_indices = removeSmallScans(info, z_img_path, imdim, scanthresh)
+    filtered_info = info.iloc[filtered_indices]
+
+    patnum = np.asarray(filtered_info['Pat_ID'])
+    unique_patnum = np.unique(patnum)
+
+    if valid:
+        raise Exception("This hasn't been implemented yet, please use test only")
+
+    else:
+        # Split data into train and test
+
+        train_idx, test_idx = train_test_split(unique_patnum, train_size=split, random_state=seed, shuffle=True)
+
+        # Set up data with custom Dataset class (in rfs_utils)
+        train_dataset = CTSurvDataset(filtered_info, z_img_path, train_idx, imdim, makeRGB)
+        test_dataset = CTSurvDataset(filtered_info, z_img_path, test_idx, imdim, makeRGB)
+
+        # Setting up DataLoader for train and test data
+        train_loader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size)
+        test_loader = DataLoader(test_dataset, shuffle=True, batch_size=batch_size)
 
         return train_loader, test_loader
 
