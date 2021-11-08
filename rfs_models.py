@@ -116,23 +116,23 @@ class SimpleCholangio(nn.Module):
         # Pool -> (?, 8, 20, 20)
         self.layer1 = nn.Sequential(
             nn.Conv2d(1, 32, kernel_size=7, stride=3),
-            nn.SELU(),
+            nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2),
             nn.Conv2d(32, 8, kernel_size=3, stride=1),
-            nn.SELU(),
+            nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2)
         )
-        # L2 FC 32x20x20 inputs -> 32 outputs
+        # L2 FC 8x20x20 inputs -> 32 outputs
         self.layer2 = nn.Sequential(
             nn.Linear(8*20*20, 256),
-            nn.SELU()
+            nn.ReLU()
         )
         # L3 final FC 32 inputs -> 1 output
         self.layer3 = nn.Linear(256, 1)
 
     def forward(self, x):
         out = self.layer1(x)
-        out = out.view(out.size(0), -1) # Flatten for FC
+        out = out.view(out.size(0), -1)   # Flatten for FC
         out = self.layer2(out)
         out = self.layer3(out)
         return out
@@ -148,26 +148,46 @@ class ResNet(nn.Module):
             res_model = models.resnet34(pretrained=True)
 
         # Setup all resnet layers except final FC layer
-        self.orig = nn.Sequential(*(list(res_model.children())[:-1]))
+        self.orig = nn.Sequential(*(list(res_model.children())[:-3]))
         for param in self.orig.parameters():
             param.requires_grad = False
 
-        # Replace final linear layer with this one
-        self.layercph = nn.Sequential(
-            # This has to be 512 because that's the output from the resnet18 and 34 models
-            nn.Linear(512, l2),
-            nn.ReLU(),
-            nn.BatchNorm1d(l2),
-            nn.Dropout(d1),
-            nn.Linear(l2, l3),
-            nn.ReLU(),
-            nn.Dropout(d2),
-            nn.Linear(l3, 1)
+        # self.layer4 = nn.Sequential(
+        #     nn.Conv2d(256, 512, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False),
+        #     nn.BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
+        #     nn.ReLU(inplace=True),
+        #     nn.Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False),
+        #     nn.BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        # )
+
+        # CAM final linear layer
+        self.layercam = nn.Sequential(
+            nn.Conv2d(256, 1024, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False),
+            nn.ReLU(inplace=True),
+            nn.AdaptiveAvgPool2d(output_size=(14, 14))
         )
+
+        self.layercph = nn.Sequential(
+            nn.Linear(1024*14*14, 256),
+            nn.Linear(256, 1)
+        )
+        # Replace final linear layer with this one
+        # self.layercph = nn.Sequential(
+        #     # This has to be 512 because that's the output from the resnet18 and 34 models
+        #     nn.Linear(512, l2),
+        #     nn.ReLU(),
+        #     nn.BatchNorm1d(l2),
+        #     nn.Dropout(d1),
+        #     nn.Linear(l2, l3),
+        #     nn.ReLU(),
+        #     nn.Dropout(d2),
+        #     nn.Linear(l3, 1)
+        # )
 
     def forward(self, x):
         # Resnet model
         out = self.orig(x)
+        out = self.layercam(out)
         # Flatten for FC
         out = out.view(out.size(0), -1)
         # CPH output

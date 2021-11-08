@@ -4,7 +4,9 @@ import json
 import os
 import matplotlib as plt
 import torch.cuda
+from torchsummary import summary
 from skimage.color import gray2rgb
+
 # import torch.optim as optim
 # from torch.utils.data import DataLoader
 
@@ -16,13 +18,11 @@ import config as args
 
 def train_ct():
     ## PRELIMINARY SETUP ##
-    # global args
+    torch.cuda.empty_cache()
 
     # Utilize GPUs for Tensor computations if available
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     # device = "cpu"
-    # Get input arguments (either from defaults or input when this function is called from terminal)
-    # args = parser.parse_args()
 
     ## OUTPUT SETUP ##
     # Check if testing mode to see if output should be saved or not
@@ -57,21 +57,25 @@ def train_ct():
         # objects for each
         train_loader, valid_loader, test_loader = load_chol_tumor(args.datadir, imdim=args.imdim,
                                                                   scanthresh=args.scanthresh, split=args.split,
+                                                                  makeRGB=args.makeRGB,
                                                                   batch_size=args.batchsize, valid=True,
                                                                   valid_split=args.valid_split, seed=args.randseed)
     else:
         # Loading the tumor images, splitting into train/test based on event indicator, and setting up DataLoader
         # objects for each
         train_loader, test_loader = load_chol_tumor(args.datadir, imdim=args.imdim, scanthresh=args.scanthresh,
-                                                    split=args.split, batch_size=args.batchsize, valid=False,
-                                                    seed=args.randseed)
+                                                    split=args.split, batch_size=args.batchsize, makeRGB=args.makeRGB,
+                                                    valid=False, seed=args.randseed)
 
     ## MODEL SETUP ##
     # Select which model architecture to build
     model = select_model(args.modelname, device)
-    if type(model) != KT6Model or type(model) != DeepConvSurv or type(model) != ResNet:
-        raise Exception("This function can only use models that take image data as inputs. "
-                        "(e.g. KT6, DeepConvSurv, ResNet) Please update config.py.")
+    # if type(model) != KT6Model and type(model) != DeepConvSurv and type(model) != ResNet:
+    #     raise Exception("This function can only use models that take image data as inputs. "
+    #                     "(e.g. KT6, DeepConvSurv, ResNet) Please update config.py.")
+
+    # model = SimpleCholangio().to(device)
+    summary(model, input_size=(3, 256, 256), batch_size=args.batchsize)
     # Setting optimization method and loss function
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learnrate)
     criterion = NegativeLogLikelihood(device)
@@ -93,20 +97,14 @@ def train_ct():
 
             # To view images to ensure proper loading
             # for imnum in range(0, args.batchsize):
-            #     plt.imshow(X[imnum][0])
+            #     fig, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True)
+            #     ax1.imshow(X[imnum][0])
+            #     ax2.imshow(X[imnum][1])
+            #     ax3.imshow(X[imnum][2])
             #     plt.show()
             #     print(imnum)
             #     # Place breakpoint here to loop through images
             #     print()
-
-            # ResNet models expect an RGB image, so a 3 channel version of the CT image is generated here
-            # (CholClassifier contains a ResNet component, so included here as well)
-            if type(model) == ResNet or type(model) == CholClassifier:
-                # Convert grayscale image to rgb to generate 3 channels
-                rgb_X = gray2rgb(X)
-                # Reshape so channels is second value
-                rgb_X = torch.from_numpy(rgb_X)
-                X = torch.reshape(rgb_X, (rgb_X.shape[0], rgb_X.shape[-1], rgb_X.shape[2], rgb_X.shape[3]))
 
             # Convert all values to float for backprop and evaluation calculations
             X, y, e = X.float().to(device), y.float().to(device), e.float().to(device)
@@ -127,6 +125,8 @@ def train_ct():
             optimizer.zero_grad()
             cox_loss.backward()
             optimizer.step()
+
+            torch.cuda.empty_cache()
         # end train for loop
 
         # Validation phase
@@ -141,15 +141,14 @@ def train_ct():
                 # val_e = event indicator
                 # _ is ignoring the slice file name, not needed here
 
-                # ResNet models expect an RGB image, so a 3 channel version of the CT image is generated here
-                # (CholClassifier contains a ResNet component, so included here as well)
-                if type(model) == ResNet or type(model) == CholClassifier:
-                    # Convert grayscale image to rgb to generate 3 channels
-                    rgb_valX = gray2rgb(val_X)
-                    # Reshape so channels is second value
-                    rgb_valX = torch.from_numpy(rgb_valX)
-                    val_X = torch.reshape(rgb_valX,
-                                          (rgb_valX.shape[0], rgb_valX.shape[-1], rgb_valX.shape[2], rgb_valX.shape[3]))
+                # for imnum in range(0, args.batchsize):
+                #     fig, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True)
+                #     ax1.imshow(val_X[imnum][0])
+                #     ax2.imshow(val_X[imnum][1])
+                #     ax3.imshow(val_X[imnum][2])
+                #     plt.show()
+                #     # Place breakpoint here to loop through images
+                #     print()
 
                 # Convert all values to float for backprop and evaluation calculations
                 val_X, val_y, val_e = val_X.float().to(device), val_y.float().to(device), val_e.float().to(device)
@@ -163,6 +162,8 @@ def train_ct():
 
                 val_ci = c_index(val_risk_pred, val_y, val_e)
                 ciValMeter.update(val_ci.item(), val_y.size(0))
+
+                torch.cuda.empty_cache()
 
             # Printing the average so you get average across all the batches for this epoch.
             print('Epoch: {} \t Train Loss: {:.4f} \t Val Loss: {:.4f} \t Train CI: {:.4f} \t Val CI: {:.4f}'.format(
@@ -193,27 +194,29 @@ def train_ct():
     # TODO: add final row of average values from the AverageMeters
 
     ## MODEL TESTING ##
+    torch.cuda.empty_cache()
     model.eval()
     testLossMeter = AverageMeter()
     ciTestMeter = AverageMeter()
     labelComp = pd.DataFrame(columns=['Slice_File_Name', 'Actual', 'Predicted'])
 
+    # TODO: getting CUDA out of memory error at model(test_X) line, need to check batch size or something
     # Only going over each batch once
     for test_X, test_y, test_e, test_slice_fname in test_loader:
+        torch.cuda.empty_cache()
         # test_X = CT image
         # test_y = time to event
         # test_e = event indicator
         # test_slice_fname = name of slice file
 
-        # ResNet models expect an RGB image, so a 3 channel version of the CT image is generated here
-        # (CholClassifier contains a ResNet component, so included here as well)
-        if type(model) == ResNet or type(model) == CholClassifier:
-            # Convert grayscale image to rgb to generate 3 channels
-            rgb_testX = gray2rgb(test_X)
-            # Reshape so channels is second value
-            rgb_testX = torch.from_numpy(rgb_testX)
-            test_X = torch.reshape(rgb_testX,
-                                  (rgb_testX.shape[0], rgb_testX.shape[-1], rgb_testX.shape[2], rgb_testX.shape[3]))
+        # for imnum in range(0, args.batchsize):
+        #     fig, (ax1, ax2, ax3) = plt.subplots(1, 3, sharey=True)
+        #     ax1.imshow(test_X[imnum][0])
+        #     ax2.imshow(test_X[imnum][1])
+        #     ax3.imshow(test_X[imnum][2])
+        #     plt.show()
+        #     # Place breakpoint here to loop through images
+        #     print()
 
         # Convert all values to float for backprop and evaluation calculations
         test_X, test_y, test_e = test_X.float().to(device), test_y.float().to(device), test_e.float().to(device)
