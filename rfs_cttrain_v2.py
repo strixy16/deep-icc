@@ -4,6 +4,7 @@ import json
 import os
 import matplotlib as plt
 import torch.cuda
+from torchsummary import summary
 from skimage.color import gray2rgb
 
 # import torch.optim as optim
@@ -74,7 +75,7 @@ def train_ct():
     #                     "(e.g. KT6, DeepConvSurv, ResNet) Please update config.py.")
 
     # model = SimpleCholangio().to(device)
-
+    summary(model, input_size=(3, 256, 256), batch_size=args.batchsize)
     # Setting optimization method and loss function
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learnrate)
     criterion = NegativeLogLikelihood(device)
