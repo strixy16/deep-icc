@@ -14,9 +14,10 @@ function opt = msk_tumor
 %              - added ImageSize argument
     
     % Dimensions for image resize step in preprocessMHA 
+    % (32 x 32 is for LeNet)
     % (299 x 299 is Inception requirement)
     % (1024 x 1024 is DeepConvSurv requirement)
-    opt.ImageSize = [256 256];
+    opt.ImageSize = [32 32];
 
     % Location of image files for tumour image set, for use in preprocessMHA
     opt.ImageLoc = "/Users/katyscott/Documents/ICC/Data/cholangio/MSK/tumor/";

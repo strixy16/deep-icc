@@ -18,7 +18,7 @@ function createCSV_wgenes(conf_f, background)
     if background == "nans"
         % use location of bin files with nans in background
         bin_dir = options.NaNLoc;
-        output_fname = options.NaNCSV;
+        output_fname = options.GeneNaNCSV;
         % Making sure output directory exists, create it if it doesn't
         nan_dir = fileparts(output_fname);
         if ~exist(nan_dir, 'dir')
@@ -30,7 +30,7 @@ function createCSV_wgenes(conf_f, background)
             disp("Incorrect input for background, using zeros.")
         end
         bin_dir = options.ZeroLoc;
-        output_fname = options.ZeroCSV;
+        output_fname = options.GeneZeroCSV;
         % Making sure output directory exists, create it if it doesn't
         zero_dir = fileparts(output_fname);
         if ~exist(zero_dir, 'dir')
