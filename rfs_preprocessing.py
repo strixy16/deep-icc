@@ -199,7 +199,7 @@ def load_chol_tumor(data_dir="../Data/", imdim=256, scanthresh=300, split=0.8, b
         test_loader: DataLoader for test set
     """
     # Get paths to images and labels
-    info_path = os.path.join(data_dir, 'Labels', str(imdim), 'RFS_all_tumors_zero.csv')
+    info_path = os.path.join(data_dir, 'Labels', 'RFS_all_tumors_zero.csv')
     z_img_path = os.path.join(data_dir, 'Images/Tumors', str(imdim), 'Zero/')
 
     info = pd.read_csv(info_path)
