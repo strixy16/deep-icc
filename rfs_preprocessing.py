@@ -80,6 +80,56 @@ class CTSurvDataset(Dataset):
         return len(self.event)
 
 
+class CTBinSurvDataset(Dataset):
+    def __init__(self, info, img_path, idx, img_dim):
+        """Initialize CTBinSurvDataset class
+        Dataset for binary labelled CT images used in survival prediction
+
+        Args:
+            info: pandas.Dataframe, read from CSV, contains image file names, patient ID, slice ID, and RFS time and event labels
+                Column titles should be: File, Pat ID, Slice Num, RFS Code, RFS Time
+            img_path: string, path to folder containing image files listed in info
+            idx: list, indices to include in this dataset (ex. indices of training data)
+            img_dim: int, dimension of images
+            makeRGB: bool, whether to load images in and convert them to RGB 3 channel or leave as 1 channel
+        """
+
+        self.info = info.iloc[idx, :]
+        self.fname = np.asarray(self.info['File'])
+        self.patid = np.asarray(self.info['Pat_ID'])
+        self.slice = np.asarray(self.info['Slice_Num'])
+        self.event = np.asarray(self.info['RFS_Code'])
+        self.time = np.asarray(self.info['RFS_Time'])
+        self.binsurv = np.asarray(self.info['RFS_Binary'])
+
+        self.img_path = img_path
+        self.dim = img_dim
+
+    def __getitem__(self, index):
+        y_tensor = torch.Tensor([self.binsurv[index]])
+
+        # Load in CT bin image as numpy array
+        img = np.fromfile(self.img_path + self.fname[index])
+
+        # Normalize values to be between 0 and 1 (requires 2D input, so reshape is used)
+        norm_img = normalize(np.reshape(img, (self.dim, self.dim)))
+
+        # Reshape to a 3D array (channels, height, width)
+        img_3D = np.reshape(norm_img, (1, self.dim, self.dim))
+
+        # Convert from np array to Tensor
+        X_tensor = torch.from_numpy(img_3D)
+
+        # Adding fname so can figure out which slice this is
+        # Making it a list so DataLoader works properly
+        fname = self.fname[index]
+
+        return X_tensor, y_tensor
+
+    def __len__(self):
+        return len(self.binsurv)
+
+
 class GeneSurvDataset(Dataset):
     def __init__(self, info):
         """

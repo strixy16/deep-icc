@@ -11,8 +11,12 @@ from torchvision import datasets, transforms
 from torchsummary import summary
 
 import matplotlib.pyplot as plt
+import os
+import pandas as pd
+from sklearn.model_selection import train_test_split
 
 from rfs_models import *
+from rfs_preprocessing import *
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -23,8 +27,11 @@ BATCH_SIZE = 32
 N_EPOCHS = 15
 
 IMG_SIZE = 32
-N_CLASSES = 10
 
+
+
+DATA_DIR = '/media/katy/Data/ICC/Data'
+SPLIT = 0.8
 
 def get_accuracy(model, data_loader, device):
     '''
@@ -83,6 +90,19 @@ def train(train_loader, model, criterion, optimizer, device):
     running_loss = 0
 
     for X, y_true in train_loader:
+
+        ROW_IMG = 8
+        N_ROWS = 4
+
+        fig = plt.figure()
+        for index in range(1, ROW_IMG * N_ROWS + 1):
+            plt.subplot(N_ROWS, ROW_IMG, index)
+            plt.axis('off')
+            plt.imshow(X[index-1][0], cmap='gray_r')
+
+        fig.suptitle('Cholangio Dataset - preview')
+        plt.show()
+
         optimizer.zero_grad()
 
         X = X.to(device)
@@ -135,7 +155,6 @@ def training_loop(model, criterion, optimizer, train_loader, valid_loader, epoch
 
     # Train model
     for epoch in range(0, epochs):
-
         # training
         model, optimizer, train_loss = train(train_loader, model, criterion, optimizer, device)
         train_losses.append(train_loss)
@@ -161,43 +180,25 @@ def training_loop(model, criterion, optimizer, train_loader, valid_loader, epoch
     return model, optimizer, (train_losses, valid_losses)
 
 
+# Main that runs MNIST data
 if __name__ == '__main__':
-    # define transforms
-    # transforms.ToTensor() automatically scales images to [0,1] range
-    transforms = transforms.Compose([transforms.Resize((32, 32)),
-                                     transforms.ToTensor()])
+    N_CLASSES = 2
 
-    # download and create datasets
-    train_dataset = datasets.MNIST(root='/media/katy/Data/ICC/',
-                                   train=True,
-                                   transform=transforms,
-                                   download=True)
+    info_path = os.path.join(DATA_DIR, 'Labels', 'bin_RFS_all_tumors_zero.csv')
+    z_img_path = os.path.join(DATA_DIR, 'Images/Tumors', str(IMG_SIZE), 'Zero/')
 
-    valid_dataset = datasets.MNIST(root='/media/katy/Data/ICC/',
-                                   train=False,
-                                   transform=transforms)
+    info = pd.read_csv(info_path)
 
-    # define the data loaders
-    train_loader = DataLoader(dataset=train_dataset,
-                              batch_size=BATCH_SIZE,
-                              shuffle=True)
+    patnum = np.asarray(info['Pat_ID'])
+    unique_patnum = np.unique(patnum)
 
-    valid_loader = DataLoader(dataset=valid_dataset,
-                              batch_size=BATCH_SIZE,
-                              shuffle=False)
+    train_idx, test_idx = train_test_split(unique_patnum, train_size=SPLIT, random_state=RANDOM_SEED, shuffle=True)
 
-    # Display data
-    # ROW_IMG = 10
-    # N_ROWS = 5
-    #
-    # fig = plt.figure()
-    # for index in range(1, ROW_IMG * N_ROWS + 1):
-    #     plt.subplot(N_ROWS, ROW_IMG, index)
-    #     plt.axis('off')
-    #     plt.imshow(train_dataset.data[index], cmap='gray_r')
-    #
-    # fig.suptitle('MNIST Dataset - preview')
-    # plt.show()
+    train_dataset = CTBinSurvDataset(info, z_img_path, train_idx, IMG_SIZE)
+    test_dataset = CTBinSurvDataset(info, z_img_path, test_idx, IMG_SIZE)
+
+    train_loader = DataLoader(train_dataset, shuffle=True, batch_size=BATCH_SIZE)
+    test_loader = DataLoader(test_dataset, shuffle=True, batch_size=BATCH_SIZE)
 
     torch.manual_seed(RANDOM_SEED)
     model = LeNet5(N_CLASSES).to(DEVICE)
@@ -206,5 +207,53 @@ if __name__ == '__main__':
 
     summary(model, input_size=(1, 32, 32), batch_size=BATCH_SIZE)
 
-    model, optimizer, _ = training_loop(model, criterion, optimizer, train_loader, valid_loader, N_EPOCHS, DEVICE)
+    model, optimizer, _ = training_loop(model, criterion, optimizer, train_loader, test_loader, N_EPOCHS, DEVICE)
 
+
+# if __name__ == '__main__':
+#         N_CLASSES = 10
+#     # define transforms
+#     # transforms.ToTensor() automatically scales images to [0,1] range
+#     transforms = transforms.Compose([transforms.Resize((32, 32)),
+#                                      transforms.ToTensor()])
+#
+#     # download and create datasets
+#     train_dataset = datasets.MNIST(root='/media/katy/Data/ICC/',
+#                                    train=True,
+#                                    transform=transforms,
+#                                    download=True)
+#
+#     valid_dataset = datasets.MNIST(root='/media/katy/Data/ICC/',
+#                                    train=False,
+#                                    transform=transforms)
+#
+#     # define the data loaders
+#     train_loader = DataLoader(dataset=train_dataset,
+#                               batch_size=BATCH_SIZE,
+#                               shuffle=True)
+#
+#     valid_loader = DataLoader(dataset=valid_dataset,
+#                               batch_size=BATCH_SIZE,
+#                               shuffle=False)
+#
+#     # Display data
+#     # ROW_IMG = 10
+#     # N_ROWS = 5
+#     #
+#     # fig = plt.figure()
+#     # for index in range(1, ROW_IMG * N_ROWS + 1):
+#     #     plt.subplot(N_ROWS, ROW_IMG, index)
+#     #     plt.axis('off')
+#     #     plt.imshow(train_dataset.data[index], cmap='gray_r')
+#     #
+#     # fig.suptitle('MNIST Dataset - preview')
+#     # plt.show()
+#
+#     torch.manual_seed(RANDOM_SEED)
+#     model = LeNet5(N_CLASSES).to(DEVICE)
+#     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
+#     criterion = nn.CrossEntropyLoss()
+#
+#     summary(model, input_size=(1, 32, 32), batch_size=BATCH_SIZE)
+#
+#     model, optimizer, _ = training_loop(model, criterion, optimizer, train_loader, valid_loader, N_EPOCHS, DEVICE)
