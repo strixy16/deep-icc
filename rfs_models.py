@@ -13,10 +13,6 @@ import torch.nn.functional as F
 class LeNet5(nn.Module):
     """ Implementing Yann LeCuns LeNet 5"""
 
-    # TODO: test this with MNIST dataset
-    # TODO: once tested with MNIST, try binary classification (need to adapt labels to be binary)
-    # TODO: try with CPH prediction, single output
-
     def __init__(self, n_classes):
         super(LeNet5, self).__init__()
 
@@ -44,6 +40,35 @@ class LeNet5(nn.Module):
         probs = F.softmax(logits, dim=1)
         return logits, probs
 
+
+class LeNetCholangio(nn.Module):
+    """ Implementing Yann LeCuns LeNet 5 adapted for Cholangio survival prediction"""
+
+    def __init__(self):
+        super(LeNetCholangio, self).__init__()
+
+        self.feature_extractor = nn.Sequential(
+            nn.Conv2d(in_channels=1, out_channels=6, kernel_size=5, stride=1),
+            nn.SELU(),
+            nn.AvgPool2d(kernel_size=2),
+            nn.Conv2d(in_channels=6, out_channels=16, kernel_size=5, stride=1),
+            nn.SELU(),
+            nn.AvgPool2d(kernel_size=2),
+            nn.Conv2d(in_channels=16, out_channels=120, kernel_size=5, stride=1),
+            nn.SELU()
+        )
+
+        self.classifier = nn.Sequential(
+            nn.Linear(in_features=120, out_features=84),
+            nn.SELU(),
+            nn.Linear(in_features=84, out_features=1),
+        )
+
+    def forward(self, x):
+        x = self.feature_extractor(x)
+        x = torch.flatten(x, 1)
+        x = self.classifier(x)
+        return x
 
 class KT6Model(nn.Module):
     """ KT6Model - CNN developed in CISC867 course"""
