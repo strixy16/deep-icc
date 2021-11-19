@@ -217,6 +217,8 @@ def select_model(modelname, device, num_genes=0):
         model = CholClassifier('18', num_genes).to(device)
     elif modelname == 'CholClassifier34':
         model = CholClassifier('34', num_genes).to(device)
+    elif modelname == 'LeNetCholangio':
+        model = LeNetCholangio().to(device)
     else:
         raise Exception('Invalid model type name.')
 
