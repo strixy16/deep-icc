@@ -75,7 +75,12 @@ def train_ct():
     #                     "(e.g. KT6, DeepConvSurv, ResNet) Please update config.py.")
 
     # model = SimpleCholangio().to(device)
-    summary(model, input_size=(3, 256, 256), batch_size=args.batchsize)
+    if args.makeRGB:
+        CHANNELS = 3
+    else:
+        CHANNELS = 1
+
+    summary(model, input_size=(CHANNELS, args.imdim, args.imdim), batch_size=args.batchsize)
     # Setting optimization method and loss function
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learnrate)
     criterion = NegativeLogLikelihood(device)
@@ -188,6 +193,7 @@ def train_ct():
                            variance=varMeter.avg, epoch=epoch, slname=save_eval_fname)
 
     if not args.testing:
+        # Setting up file to save out evaluation values to/load them from
         plot_coxloss(save_eval_fname, model._get_name(), valid=args.validation, save=args.saveplots)
         plot_concordance(save_eval_fname, model._get_name(), valid=args.validation, save=args.saveplots)
 
