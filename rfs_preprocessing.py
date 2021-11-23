@@ -192,6 +192,7 @@ class CTGeneDataset(Dataset):
         gene_start = self.info.columns.get_loc('RFS_Time') + 1
         self.genes = np.asarray(self.info.iloc[:, gene_start:])
         self.num_genes = self.genes.shape[1]
+        self.rgb = makeRGB
 
     def __getitem__(self, index):
         e_tensor = torch.Tensor([self.event[index]]).int()
@@ -409,8 +410,8 @@ def load_chol_tumor_w_gene(data_dir="../Data/", imdim=256, scanthresh=300, split
 
         # Setting up DataLoader for train and test data
         # Shuffling data so slices from same patient are not passed in next to each other
-        train_loader = DataLoader(train_dataset, shuffle=False, batch_size=batch_size)
-        test_loader = DataLoader(test_dataset, shuffle=False, batch_size=batch_size, drop_last=True)
+        train_loader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size)
+        test_loader = DataLoader(test_dataset, shuffle=True, batch_size=batch_size, drop_last=True)
 
         return train_loader, test_loader
 
