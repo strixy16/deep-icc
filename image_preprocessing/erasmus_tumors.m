@@ -20,16 +20,16 @@ function opt = erasmus_tumors
     opt.ImageSize = [32 32];
     
     % Location of image files for tumour image set, for use in preprocessMHA
-    opt.ImageLoc = "/Users/katyscott/Documents/ICC/Data/cholangio/Erasmus/tumors/";
+    opt.ImageLoc = "../../Data/cholangio/Erasmus/tumors/";
     
     % Location of bin folder containing tumour image slice set, for use in
     % preprocess MHA and createCSV
     % NOTE: this has subfolders NaN and zero in it 
-    opt.BinLoc = strcat("/Users/katyscott/Documents/ICC/Data/Images/Tumors/", string(opt.ImageSize(1)), "/");
+    opt.BinLoc = strcat("../../Data/Images/Tumors/", string(opt.ImageSize(1)), "/");
     
     
     % Spreadsheet of labels, excel file, for use in createCSV.m
-    opt.Labels = "/Users/katyscott/Documents/ICC/Data/RFS_Scout.xlsx";
+    opt.Labels = "../../Data/RFS_Scout.xlsx";
     % File name + location to output in createCSV.m
-    opt.OutputCSV = "/Users/katyscott/Documents/ICC/Data/Labels/Erasmus_RFS.csv";
+    opt.OutputCSV = "../../Data/Labels/Erasmus_RFS.csv";
 end
