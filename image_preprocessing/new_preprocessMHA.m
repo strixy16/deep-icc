@@ -45,6 +45,8 @@ function new_preprocessMHA(conf_f)
         non_zero_rows = find(max_tumor_rows);
         temp_height = non_zero_rows(end) - non_zero_cols(1);
         
+        % TODO: FIND THE CENTER OF THE TUMOR AND STORE FOR SECOND LOOP
+        
         % Check if width and height are larger than existing
         if temp_width > maxWidth
             maxWidth = temp_width;
@@ -58,16 +60,25 @@ function new_preprocessMHA(conf_f)
         temp_tumor_marker = sum(maskVol,2);
         tumor_marker = sum(temp_tumor_marker,1);
         
+        % Finding slice indices that have tumor pixels
         tumor_slice_ind = find(tumor_marker);
         
+        % Selecting out tumor slices
         tumor_slices = procVol(:,:,tumor_slice_ind);
+        
+        % Storing only tumor slices for cropping
         procImages{currFile} = tumor_slices;
         
     end
     
-    % Second loop
-    fprintf("Finished first loop");
+    % Second loop to crop images based on max height and width
     
-    
+    for currFile = 1:nData
+        fprintf('Cropping images for %i \n', currFile)
+        vol = procImages{currFile};
+        
+        % Need to find center of the tumor 
+        % use the max mask again -
+    end
 
 end
