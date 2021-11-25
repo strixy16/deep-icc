@@ -1,4 +1,5 @@
-function [Inew, dblMask] = ProcessImage(I)
+function out = ProcessImage(I)
+% Outputs slice with all but tumor pixels set to NaNs
     % Convert image to double
     I = double(I);
     % Generate mask excluding values outside of this range (Hounsfield
@@ -9,8 +10,7 @@ function [Inew, dblMask] = ProcessImage(I)
     ImaskInv = imcomplement(Imask);
     % Apply mask to image to separate tumor from background
     Inew = I .* ImaskInv;
-    dblMask = double(ImaskInv);
     % Make background NaN instead of 0s
-%     Inew(Inew==0) = NaN;
-%     out = Inew;
+    Inew(Inew==0) = NaN;
+    out = Inew;
 end
