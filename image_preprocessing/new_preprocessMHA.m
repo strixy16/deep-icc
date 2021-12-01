@@ -1,14 +1,15 @@
 function new_preprocessMHA(conf_f)
 
-%     if ischar(conf_f) || isstring(conf_f)
-%         conf_f = str2func(conf_f);
-%         options = conf_f();   
-%     elseif isstruct(conf_f)
-%         options = conf_f();
-%     else
-%        error("Input must be struct or name of .m config file") 
-%     end
-    options = erasmus_tumors();
+    if ischar(conf_f) || isstring(conf_f)
+        conf_f = str2func(conf_f);
+        options = conf_f();   
+    elseif isstruct(conf_f)
+        options = conf_f();
+    else
+       error("Input must be struct or name of .m config file") 
+    end
+    % For debugging purposes use either of below two
+%     options = erasmus_tumors();
 %     options = msk_tumor();
     
     % Getting list of MHD tumor files
