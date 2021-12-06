@@ -44,6 +44,8 @@ function preprocessMHA(conf_f)
         info = mha_read_header(filename);
         vol = double(mha_read_volume(info));
         vol = double(ProcessImage(vol));
+        % Storing the processed images - should change this to only contain
+        % slices with actual tumor parts
         procImages{currFile} = vol;
         [~, ~, nSlice] = size(vol);
 %         imshow(vol(:,:,29))
@@ -51,8 +53,8 @@ function preprocessMHA(conf_f)
         % Iterating through each slice of the volume
         for currSlice=1:nSlice
             slice = vol(:,:,currSlice);
-            % Checking if standard deviation is NaN (image loaded in
-            % properly?)
+            % Checking if slice contains any tumor pixels, skipped
+            % otherwise
             if ~isnan(std(slice(:),'omitnan'))
                 % From first for loop in DataGeneration
                 [rows,cols] = find(~isnan(slice));
@@ -71,6 +73,7 @@ function preprocessMHA(conf_f)
                 clear rows cols;
             end % end if
         end % end slice loop
+        clear vol
     end % end file loop
     
     % Second for loop to crop images based on max and minHeight
@@ -95,6 +98,7 @@ function preprocessMHA(conf_f)
                 if startCol <= 0
                     startCol = 1;
                 end
+                % Don't think this is right, could end up missing tumor
                 if startRow + maxHeight > nRows
                     startRow = startRow - (nRows - maxHeight);
                 end
