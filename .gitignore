@@ -11,6 +11,5 @@ mnist_data/
 *.pkl
 getTrainTestfiles.py
 image_preprocessing/imagecounts.mat
-image_preprocessing/rearrangeMCRC.m
 image_preprocessing/tumorcounts.mat
 lenet5_pytorch.ipynb
