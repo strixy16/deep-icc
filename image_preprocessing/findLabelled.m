@@ -9,15 +9,20 @@ function findLabelled(conf_f)
         error("Input must be struct or name of .m config file")
     end
 
-    all_file_info = dir(strcat(options.all_file_dir, "*Tumor*"));
+    all_file_info = dir(strcat(options.all_file_dir, "*umor*"));
 
     tbl_all_file_info = struct2table(all_file_info);
 
     cell_all_file_names = natsort(tbl_all_file_info{:,'name'});
 
-    img_labels = readtable(options.labels_file);
+    img_labels = readtable(options.Labels);
 
-    files_to_move = cell(0, size(img_labels,1)*2);
+%     files_to_move = cell(0, size(img_labels,1)*2);
+    
+    % Making sure labelled_only directory exists 
+    if ~exist(options.destination_dir, 'dir')
+        mkdir(options.destination_dir)
+    end
 
     for label_idx = 1:size(img_labels, 1)
         patient_ID = img_labels.ScoutID(label_idx);
