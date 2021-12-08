@@ -12,8 +12,8 @@ function new_preprocessMHA(conf_f)
 %     options = erasmus_tumors();
 %     options = msk_tumor();
     
-    % Getting list of MHD tumor files
-    baseDirs = dir(strcat(options.ImageLoc, "*Tumor*.mhd"));
+    % Getting list of MHD tumor files (captures Tumor and tumor)
+    baseDirs = dir(strcat(options.ImageLoc, "*umor*.mhd"));
     
     % Counter for loop
     nData = size(baseDirs, 1);
@@ -24,7 +24,7 @@ function new_preprocessMHA(conf_f)
     
     % Initiate container for processed slice images
     procImages = cell(nData, 1);
-    tumorCenters = zeros(nData, 2);
+%     tumorCenters = zeros(nData, 2);
     
     % Reading each individual MHD file to find the max height and width
     % from the images
@@ -32,7 +32,7 @@ function new_preprocessMHA(conf_f)
         fprintf('Computing Size for %i \n', currFile)
         filename = strcat(options.ImageLoc, baseDirs(currFile).name);
         info = mha_read_header(filename);
-        vol = double(mha_read_volume(info));
+        vol = single(mha_read_volume(info));
         
         % This particular patient has 740 slices and only 10 of them
         % contain tumor pixels. To prevent MATLAB from crashing during
@@ -42,7 +42,9 @@ function new_preprocessMHA(conf_f)
             vol = vol(:,:,300:600);
         end
         
-        [procVol, maskVol] = new_ProcessImage(vol);
+        % Getting tumor mask to use for finding empty images and the
+        % largest tumor dimensions
+        maskVol = generateMask(vol);
         
         % Sum the volume by the 3rd dimension to get largest tumour
         % dimensions
@@ -62,12 +64,13 @@ function new_preprocessMHA(conf_f)
         % Find the distance between the upper and lower edges of the tumor
         temp_height = non_zero_rows(end) - non_zero_rows(1);
         
-        % TODO: FIND THE CENTER OF THE TUMOR AND STORE FOR SECOND LOOP
+        % Note: might remove this, calculating center in second loop
+        % instead
         % Find the center x coordinate of the tumor
-        ctr_x = non_zero_cols(1) + floor(temp_width/2);
-        % Find the center y coordinate of the tumor
-        ctr_y = non_zero_rows(1) + floor(temp_height/2);
-        tumorCenters(currFile,:) = [ctr_x, ctr_y];
+%         ctr_x = non_zero_cols(1) + floor(temp_width/2);
+%         % Find the center y coordinate of the tumor
+%         ctr_y = non_zero_rows(1) + floor(temp_height/2);
+%         tumorCenters(currFile,:) = [ctr_x, ctr_y];
         
         % Check if width and height are larger than existing
         if temp_width > maxWidth
@@ -79,39 +82,56 @@ function new_preprocessMHA(conf_f)
         
         % Sum processed volume by 1st and 2nd dimension
         % Result is 1 if tumor pixels in slice, 0 if not
-        temp_tumor_marker = sum(maskVol,2);
-        tumor_marker = sum(temp_tumor_marker,1);
+        tumor_marker = sum(maskVol,2);
+        tumor_marker = sum(tumor_marker,1);
         tumor_marker = reshape(tumor_marker, [size(tumor_marker,3),1]);
         
         % Finding slice indices that have tumor pixels
-        tumor_slice_ind = tumor_marker > 0;
+%         tumor_slice_ind = tumor_marker > 0;
 %         tumor_slice_ind = find(tumor_marker);
 
         % Selecting out tumor slices
-        tumor_slices = procVol(:,:,tumor_slice_ind);
+%         tumor_slices = vol(:,:,tumor_slice_ind);
         
         % Storing only tumor slices for cropping
-        procImages{currFile} = tumor_slices;
+        procImages{currFile} = find(tumor_marker);
         
+        clear vol tumor_slices maskVol max_tumor_mask max_tumor_cols max_tumor_rows
     end
     
     % Second loop to crop images based on max height and width
+    
+    % Want to crop in a square, so take maximum of max height and width
+    cropDim = max(maxHeight, maxWidth);
     
     % Image cropping to end up with the tumor piece centered in the image
     % Have to loop over every slice individually and find the center
     for currFile = 1:nData
         fprintf('Cropping images for %i \n', currFile)
-        vol = procImages{currFile};
-        [nRows, nCols, nSlice] = size(vol);
-        sliceID = 1; % part of naming the binfile
+        filename = strcat(options.ImageLoc, baseDirs(currFile).name);
+        info = mha_read_header(filename);
+        vol = double(mha_read_volume(info));
         
+        % This particular patient has 740 slices and only 10 of them
+        % contain tumor pixels. To prevent MATLAB from crashing during
+        % processing, an outer 300 slices are removed (these have been
+        % confirmed to not contain the tumor pixels)
+        if contains(filename, "ICC_Radiogen_Add28_Tumor")
+            vol = vol(:,:,300:600);
+        end
+       
+        tumor_vol = vol(:,:, procImages{currFile});
+        tumor_mask = generateMask(tumor_vol);
+        [nRows, nCols, nSlice] = size(tumor_vol);
+        sliceID = 1; % part of naming the binfile
+        clear vol
         % Iterating through each slice of the volume to crop around tumor
         for currSlice = 1:nSlice
-            slice = vol(:,:,currSlice);
+            slice_mask = tumor_mask(:,:,currSlice);
             % Find tumor pixels in the slice
             
             % Sum rows to find which columns contain tumor
-            slice_cols = sum(slice,1);
+            slice_cols = sum(slice_mask,1);
             % Find tumor pixels (all non-zero elements)
             tumor_cols = find(slice_cols);
             % Find width of the tumor
@@ -120,7 +140,7 @@ function new_preprocessMHA(conf_f)
             ctr_x = tumor_cols(1) + floor(tumor_width/2);
             
             % Sum cols to find which columns contain tumor
-            slice_rows = sum(slice,2);
+            slice_rows = sum(slice_mask,2);
             % Find tumor pixels (all non-zero elements)
             tumor_rows = find(slice_rows);
             % Find height of tumor
@@ -129,8 +149,8 @@ function new_preprocessMHA(conf_f)
             ctr_y = tumor_rows(1) + floor(tumor_height/2);
             
             % Get top left corner of crop window
-            startCol = ctr_x - floor(maxWidth/2);
-            startRow = ctr_y - floor(maxHeight/2);
+            startCol = ctr_x - floor(cropDim/2);
+            startRow = ctr_y - floor(cropDim/2);
             
             % Checking if crop window falls outside of image in any
             % direction
@@ -140,37 +160,55 @@ function new_preprocessMHA(conf_f)
             if startCol <= 0
                 startCol = 1;
             end
-            if startRow + maxHeight > nRows
-                startRow = nRows - maxHeight;
+            if startRow + cropDim > nRows
+                startRow = nRows - cropDim;
             end
-            if startCol + maxWidth > nCols
-                startCol = nCols - maxWidth;
+            if startCol + cropDim > nCols
+                startCol = nCols - cropDim;
             end
             
             % Cropping around tumor based on max tumor height and width
-            imageCr = imcrop(slice, [startCol startRow maxWidth maxHeight]);
+            imageCr = imcrop(tumor_vol(:,:,currSlice), [startCol startRow cropDim cropDim]);
             
             % Resize image to desired dimension
-            imageCrR = imresize(imageCr, options.ImageSize);
+%             imageCrR = imresize(imageCr, options.ImageSize);
+            
+%             figure(1)
+%             image(imageCr)
+% %             figure(2)
+%             image(imageCrR)
+            
+            % replace background 0s with -1000
+%             imageCrRB = imageCrR;
+%             imageCrRB(imageCrRB == 0) = -1000;
             
             % Create new file name, drop .mhd, add slice number and .bin
             % suffix
             binFileName = strcat(baseDirs(currFile).name(1:end-4), '_Slice_', num2str(sliceID), '.bin');
             
-            % Check if Zero directory exists, create if not
-            zero_dir = strcat(options.BinLoc, 'Zero/');
-            if ~exist(zero_dir, 'dir')
-                mkdir(zero_dir)
+            % Check if Zero and Thousand directory exists, create if not
+%             zero_dir = strcat(options.BinLoc, 'Zero/');
+            thous_dir = strcat(options.BinLoc, 'Original/');
+%             if ~exist(zero_dir, 'dir')
+%                 mkdir(zero_dir)
+%             end
+            if ~exist(thous_dir, 'dir')
+                mkdir(thous_dir)
             end
             
-            % Save new image version
-            zeroFileID = fopen(strcat(zero_dir, binFileName), 'w');
-            fwrite(zeroFileID, imageCrR, 'double');
-            fclose(zeroFileID);
+            % Save new image version with zeros background
+%             zeroFileID = fopen(strcat(zero_dir, binFileName), 'w');
+%             fwrite(zeroFileID, imageCrR, 'double');
+%             fclose(zeroFileID);
+            
+            % Save new image version with -1000 background
+            thousFileID = fopen(strcat(thous_dir, binFileName), 'w');
+            fwrite(thousFileID, imageCr, 'double');
+            fclose(thousFileID);
             
             sliceID = sliceID + 1;
             
-            clear imageCr imageCrR rows cols;
+            clear imageCr imageCrR rows cols slice_mask slice_rows slice_cols;
             
         end
 

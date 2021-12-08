@@ -12,7 +12,7 @@ function opt = all_tumors
     % (32 x 32 is for LeNet)
     % (299 x 299 is Inception requirement)
     % (1024 x 1024 is DeepConvSurv requirement)
-    opt.ImageSize = [32 32];
+    opt.ImageSize = [220 220];
     
     % Location of image files for tumor image set
     opt.ImageLoc = "../../Data/All_CT/Tumor/";
