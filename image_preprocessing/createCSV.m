@@ -32,6 +32,10 @@ function createCSV(conf_f, background)
         if ~exist(nan_dir, 'dir')
             mkdir(nan_dir);
         end
+    elseif background == "original"
+        % use location of bin files with -1000 in background
+        bin_dir = strcat(options.BinLoc, "/Original/");
+        output_fname = options.
     else
         % use location of bin files with zeros in background
         if background ~= "zeros"

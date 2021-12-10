@@ -1,6 +1,6 @@
 function opt = all_tumors
-% Description: Configuration file for new_preprocessMHA for all labelled 
-% tumor images (ICC, HCC, MCRC)
+% Description: Configuration file for new_preprocessMHA and createCSV for 
+% all labelled tumor images (ICC, HCC, MCRC)
 
 % OUTPUT: opt - struct containing variables defined here
 
@@ -21,5 +21,7 @@ function opt = all_tumors
     % new_preprocessMHA
     opt.BinLoc = strcat("../../Data/Images/Labelled_Tumors/", string(opt.ImageSize(1)), "/");
     
-
+    % Output CSV setup for createCSV
+    opt.CSVname = "../../Data/Labels/HDFS_labelled_tumors.csv";
+    opt.CSV_header = {'File', 'Pat_ID', 'Slice_Num', 'HDFS_Code', 'HDFS_Time');
 end
