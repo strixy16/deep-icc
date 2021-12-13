@@ -23,5 +23,8 @@ function opt = all_tumors
     
     % Output CSV setup for createCSV
     opt.CSVname = "../../Data/Labels/HDFS_labelled_tumors.csv";
-    opt.CSV_header = {'File', 'Pat_ID', 'Slice_Num', 'HDFS_Code', 'HDFS_Time');
+    opt.CSV_header = {'File', 'Pat_ID', 'Slice_Num', 'HDFS_Code', 'HDFS_Time'};
+    
+    opt.Labels = "../../Data/HDFS_Scout_all.xlsx";
+    
 end
