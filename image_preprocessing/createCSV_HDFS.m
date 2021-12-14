@@ -1,4 +1,4 @@
-function createCSV_HDFS(conf_f, background)
+function createCSV_HDFS(conf_f)
 % Name: createCSV
 % Description: Function to generate CSV file to correspond patients with 
 % images and slices from preprocessMHA along with labels for HDFS 
@@ -23,36 +23,15 @@ function createCSV_HDFS(conf_f, background)
         options = conf_f;
     end
     
-    if background == "nans"
-        % use location of bin files with nans in background
-        bin_dir = options.NaNLoc;
-        output_fname = options.NaNCSV;
-        % Making sure output directory exists, create it if it doesn't
-        nan_dir = fileparts(output_fname);
-        if ~exist(nan_dir, 'dir')
-            mkdir(nan_dir);
-        end
-    elseif background == "original"
-        % use location of bin files with -1000 in background
-        bin_dir = strcat(options.BinLoc, "/Original/");
-        output_fname = options.CSVname;
-        out_dir = fileparts(output_fname);
-        if ~exist(out_dir, 'dir')
-            mdkir(out_dir);
-        end
-    else
-        % use location of bin files with zeros in background
-        if background ~= "zeros"
-            disp("Incorrect input for background, using zeros.")
-        end
-        bin_dir = options.ZeroLoc;
-        output_fname = options.ZeroCSV;
-        % Making sure output directory exists, create it if it doesn't
-        zero_dir = fileparts(output_fname);
-        if ~exist(zero_dir, 'dir')
-            mkdir(zero_dir);
-        end
+   
+    % use location of bin files with -1000 in background
+    bin_dir = options.BinLoc;
+    output_fname = options.CSVname;
+    out_dir = fileparts(output_fname);
+    if ~exist(out_dir, 'dir')
+        mdkir(out_dir);
     end
+
     
     % Get list of all bin files
     bin_files = dir(fullfile(bin_dir, '*.bin'));

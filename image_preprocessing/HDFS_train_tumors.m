@@ -1,4 +1,4 @@
-function opt = all_tumors
+function opt = HDFS_train_tumors
 % Description: Configuration file for new_preprocessMHA and createCSV for 
 % all labelled tumor images (ICC, HCC, MCRC)
 
@@ -6,7 +6,7 @@ function opt = all_tumors
 
 % Environment: MATLAB R2021a
 % Author: Katy Scott
-% Created: Dec 7, 2021
+% Created: Dec 13, 2021
 
     % Dimensions for image resize step
     % (32 x 32 is for LeNet)
@@ -19,12 +19,12 @@ function opt = all_tumors
     
     % Location of bin folder to output tumor image slice set at end of
     % new_preprocessMHA
-    opt.BinLoc = strcat("../../Data/Images/Labelled_Tumors/", string(opt.ImageSize(1)), "/Original/");
+    opt.BinLoc = strcat("../../Data/Images/Labelled_Tumors/", string(opt.ImageSize(1)), "/train/");
     
     % Output CSV setup for createCSV
-    opt.CSVname = "../../Data/Labels/HDFS_labelled_tumors.csv";
+    opt.CSVname = "../../Data/Labels/HDFS_train_tumors.csv";
     opt.CSV_header = {'File', 'Pat_ID', 'Slice_Num', 'HDFS_Code', 'HDFS_Time'};
     
-    opt.Labels = "../../Data/HDFS_Scout_all.xlsx";
+    opt.Labels = "../../Data/HDFS_train_labels.xlsx";
     
 end
