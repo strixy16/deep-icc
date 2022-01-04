@@ -7,7 +7,14 @@ DATA_DIR = '/media/katy/Data/ICC/Data/'
 TRAIN_LABEL_FILE = 'Labels/HDFS_train_tumors.csv'
 TEST_LABEL_FILE = 'Labels/HDFS_test_tumors.csv'
 # Partial from data_dir to image files. From this directory select image dimension, then train and test folder
-IMG_LOC_PATH = 'Images/Labelled_Tumors'
+IMG_LOC_PATH = 'Images/Labelled_Tumors/'
 # Dimension of CT image to load
-ORIG_IMG_DIM = 220
+ORIG_IMG_DIM = 221
 
+SEED = 16
+
+BATCH_SIZE = 32
+EPOCHS = 10
+
+# Validation
+K = 5

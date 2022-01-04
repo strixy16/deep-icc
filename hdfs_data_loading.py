@@ -42,7 +42,7 @@ class HDFSTumorDataset(Dataset):
         # Load in CT image as 1D array
         img = np.fromfile(img_path)
         # Reshape into 3D (channels, height, width)
-        img = np.reshape(img, (1, self.orig_img_dim, self.orig_img_dim))
+        img = np.reshape(img, (self.orig_img_dim, self.orig_img_dim))
 
         if self.transform_list:
             # Apply transformations to image and convert to Tensor
@@ -52,14 +52,15 @@ class HDFSTumorDataset(Dataset):
         e_tensor = torch.Tensor([self.event_label[idx]])
         t_tensor = torch.Tensor([self.time_label[idx]])
 
-        return X_tensor, e_tensor, t_tensor
+        return X_tensor, t_tensor, e_tensor
 
 
 def load_hdfs_train(data_dir="../Data/",
                     label_file_name="Labels/HDFS_train_tumors.csv",
                     img_loc_path="Images/Labelled_Tumors/",
-                    orig_img_dim=220,
+                    orig_img_dim=221,
                     batch_size=32,
+                    kfold=False,
                     seed=16):
     """
     Load HDFS image and label data for the training set
@@ -91,12 +92,12 @@ def load_hdfs_train(data_dir="../Data/",
     return train_loader
 
 
-def load_hdfs_test(data_dir = "../Data/",
-                   label_file_name = "Labels/HDFS_test_tumors.csv",
-                   img_loc_path = "Images/Labelled_Tumors/",
-                   orig_img_dim = 220,
-                   batch_size = 32,
-                   seed = 16):
+def load_hdfs_test(data_dir="../Data/",
+                   label_file_name="Labels/HDFS_test_tumors.csv",
+                   img_loc_path="Images/Labelled_Tumors/",
+                   orig_img_dim=221,
+                   batch_size=32,
+                   seed=16):
     """
     Load HDFS image and label data for the testing set
 
