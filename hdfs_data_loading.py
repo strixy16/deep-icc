@@ -44,10 +44,11 @@ class HDFSTumorDataset(Dataset):
         # Reshape into 3D (channels, height, width)
         img = np.reshape(img, (self.orig_img_dim, self.orig_img_dim))
 
-        if self.transform_list:
-            # Apply transformations to image and convert to Tensor
-            X_tensor = self.transform_list(img)
-
+        print(np.mean(img), np.std(img))
+        # Apply transformations to image and convert to Tensor
+        transform_list = transforms.Compose([transforms.ToTensor()
+                                       ])
+        X_tensor = transform_list(img)
         # Get corresponding event and time label for slice
         e_tensor = torch.Tensor([self.event_label[idx]])
         t_tensor = torch.Tensor([self.time_label[idx]])
