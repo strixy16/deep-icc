@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from sklearn.model_selection import KFold
 import torch.cuda
 from torch.utils.data import DataLoader, SubsetRandomSampler
@@ -72,6 +73,28 @@ def valid_epoch(model, device, dataloader, criterion):
 
     return coxLoss, conInd
 
+
+def kfold_train(data_info_path, data_img_path, k=None, seed=16):
+    # K-fold cross validation setup
+    splits = KFold(n_splits=k, shuffle=True, random_state=seed)
+    foldperf = {}
+
+    info = pd.read_csv(data_info_path)
+    dataset = HDFSTumorDataset(data_info_path, data_img_path, args.ORIG_IMG_DIM)
+
+
+    for fold, (train_idx, val_idx) in enumerate(splits.split(np.arange(len(info)))):
+        print('Fold {}'.format(fold + 1))
+        train_sampler = SubsetRandomSampler(train_idx)
+        valid_sampler = SubsetRandomSampler(val_idx)
+
+        train_loader = DataLoader(dataset, batch_size=args.BATCH_SIZE, sampler=train_sampler)
+        valid_loader = DataLoader(dataset, batch_size=args.BATCH_SIZE, sampler=valid_sampler, drop_last=True)
+
+        print('breakpoint goes here')
+
+
+
 if __name__ == '__main__':
     # Preliminaries
     torch.cuda.empty_cache()
@@ -83,17 +106,13 @@ if __name__ == '__main__':
     torch.cuda.manual_seed(args.SEED)
     np.random.seed(args.SEED)
 
-    train_info = os.path.join(args.DATA_DIR, args.TRAIN_LABEL_FILE)
-    test_info = os.path.join(args.DATA_DIR, args.TEST_LABEL_FILE)
+    train_info_path = os.path.join(args.DATA_DIR, args.TRAIN_LABEL_FILE)
+    test_info_path = os.path.join(args.DATA_DIR, args.TEST_LABEL_FILE)
 
     train_img_path = os.path.join(args.DATA_DIR, args.IMG_LOC_PATH, str(args.ORIG_IMG_DIM), 'train/')
     test_img_path = os.path.join(args.DATA_DIR, args.IMG_LOC_PATH, str(args.ORIG_IMG_DIM), 'test/')
 
-    # K-fold cross validation setup
-    splits = KFold(n_splits=args.K, shuffle=True, random_state=args.SEED)
-    foldperf={}
-
-
+    kfold_train(train_info_path, train_img_path, k=args.K, seed=args.SEED)
 
     # view_images(train_loader)
 
