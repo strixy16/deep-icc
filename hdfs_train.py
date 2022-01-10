@@ -18,40 +18,64 @@ class HDFSModel1(nn.Module):
     def __init__(self):
         super(HDFSModel1, self).__init__()
         # ImgIn shape = (?, 1, 221, 221)
-        # Conv -> (?, 32, 108, 108)
-        # Pool -> (?, 32, 54, 54)
-        self.conv1 = nn.Conv2d(in_channels=1, out_channels=32, kernel_size=7, stride=2)
-        # Conv -> (?, 16, 25, 25)
-        # Pool -> (?, 16, 12, 12)
-        self.conv2 = nn.Conv2d(in_channels=32, out_channels=16, kernel_size=5, stride=2)
+        # Conv -> (?, 16, 72, 72)
+        # Pool -> (?, 16, 36, 36)
+        self.layer1 = nn.Sequential(
+            nn.Conv2d(1, 16, kernel_size=7, stride=3),
+            nn.SELU(),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Dropout(0.5)
+        )
+        # Conv -> (?, 16, 16, 16)
+        self.layer2 = nn.Sequential(
+            nn.Conv2d(16, 16, kernel_size=5, stride=2),
+            nn.SELU(),
+            nn.Dropout(0.5)
+        )
+        # Conv -> (?, 8, 7, 7)
+        # Pool -> (?, 8, 3, 3)
+        self.layer3 = nn.Sequential(
+            nn.Conv2d(16, 8, kernel_size=3, stride=2),
+            nn.SELU(),
+            nn.MaxPool2d(kernel_size=2, stride=2)
+        )
 
-        self.fc1 = nn.Linear(16*12*12, 32)
-        self.fc2 = nn.Linear(32, 1)
-        # self.fc3 = nn.Linear(3, 1)
+        # FC1 -> 8*3*3 inputs -> 8 outputs
+        # FC2 -> 8 -> 3
+        # Final -> 3 -> 1
+        self.layer4 = nn.Sequential(
+            nn.Linear(8*3*3, 8),
+            nn.SELU(),
+            nn.Linear(8, 3),
+            nn.SELU(),
+            nn.Linear(3, 1)
+        )
 
     def forward(self, x):
-        x = F.relu(F.max_pool2d(self.conv1(x), kernel_size=2, stride=2))
-        x = F.relu(F.max_pool2d(self.conv2(x), kernel_size=2, stride=2))
-        x = x.view(x.size(0), -1) # Flatten for FC
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        # x = F.relu(self.fc3(x))
-
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = x.view(x.size(0), -1)
+        x = self.layer4(x)
         return x
 
 
 def view_images(data_loader):
     for X, _, _ in data_loader:
+
+        # im = plt.imshow(X[0][0], cmap='gray', vmin=-100, vmax=300)
+        # plt.savefig("../Data/Output/adjusted_img.png")
+
         ROW_IMG = 8
         N_ROWS = 4
 
-        fig = plt.figure()
+        # fig = plt.figure()
         for index in range(1, ROW_IMG*N_ROWS+1):
             plt.subplot(N_ROWS, ROW_IMG, index)
             plt.axis('off')
             plt.imshow(X[index-1][0], cmap='gray', vmin=-100, vmax=300)
 
-        fig.suptitle('HDFS Dataset - preview')
+        # fig.suptitle('HDFS Dataset - preview')
         plt.show()
 
 
@@ -60,6 +84,8 @@ def train_epoch(model, device, dataloader, criterion, optimizer):
     model.train()
     coxLoss = 0.0
     conInd = 0.0
+
+    # view_images(dataloader)
 
     for X, t, e in dataloader:
         # X = CT image
