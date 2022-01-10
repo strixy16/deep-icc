@@ -44,7 +44,7 @@ class HDFSTumorDataset(Dataset):
         # Reshape into 3D (channels, height, width)
         img = np.reshape(img, (self.orig_img_dim, self.orig_img_dim))
 
-        print(np.mean(img), np.std(img))
+        # print(np.mean(img), np.std(img))
         # Apply transformations to image and convert to Tensor
         transform_list = transforms.Compose([transforms.ToTensor()
                                        ])

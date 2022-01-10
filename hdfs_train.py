@@ -61,37 +61,51 @@ class HDFSModel1(nn.Module):
 
 
 def view_images(data_loader):
+    # Function to view images that are loaded in in the correct way
     for X, _, _ in data_loader:
 
         # im = plt.imshow(X[0][0], cmap='gray', vmin=-100, vmax=300)
         # plt.savefig("../Data/Output/adjusted_img.png")
 
-        ROW_IMG = 8
+        # Function assumes batch size of 32
+        # Number of columns to make in subplot
+        N_COL = 8
+        # Number of rows to make in subplot
         N_ROWS = 4
 
-        # fig = plt.figure()
-        for index in range(1, ROW_IMG*N_ROWS+1):
-            plt.subplot(N_ROWS, ROW_IMG, index)
+        # fig = plt.figure() # Uncomment if you want each batch to have their own figure
+        for index in range(1, N_COL*N_ROWS+1):
+            # Select subplot to put current image in
+            plt.subplot(N_ROWS, N_COL, index)
+            # Turn off cartesian plane
             plt.axis('off')
+            # Display figure with correct grayscale range
             plt.imshow(X[index-1][0], cmap='gray', vmin=-100, vmax=300)
 
         # fig.suptitle('HDFS Dataset - preview')
+        # Display the complete figure
         plt.show()
 
 
 def train_epoch(model, device, dataloader, criterion, optimizer):
-
+    # Function to train a deep learning model for some number of epochs
+    # Set model to training mode so weights are updated
     model.train()
+    # Initialize loss counter
     coxLoss = 0.0
+    # Initialize c-index counter
     conInd = 0.0
 
+    # use to confirm dataloader is passed correctly
     # view_images(dataloader)
 
+    # Iterate over each batch in the data
     for X, t, e in dataloader:
         # X = CT image
         # t = time to event
         # e = event indicator
 
+        # Convert all data to floats and store on CPU or GPU (if available)
         X, t, e = X.float().to(device), t.float().to(device), e.float().to(device)
 
         # Forward pass through model
@@ -113,14 +127,27 @@ def train_epoch(model, device, dataloader, criterion, optimizer):
 
 
 def valid_epoch(model, device, dataloader, criterion):
+    # Function to run validation on a deep learning model
+    # Set model to evaluation so weights are not updated
     model.eval()
+    # Initialize loss counter
     coxLoss = 0.0
+    # Initialize c-index counter
     conInd = 0.0
 
+    # Iterate over each batch in the data
     for X, t, e in dataloader:
+        # X = CT image
+        # t = time to event
+        # e = event indicator
+
+        # Convert all data to floats and store on CPU or GPU (if available)
         X, t, e = X.float().to(device), t.float().to(device), e.float().to(device)
+
+        # Pass data forward through trained model
         risk_pred = model(X)
 
+        # Calculate loss and evaluation metrics
         val_loss = criterion(-risk_pred, t, e, model)
         coxLoss += val_loss.item() * t.size(0)
 
@@ -135,49 +162,102 @@ def kfold_train(data_info_path, data_img_path, k=None, seed=16):
     splits = KFold(n_splits=k, shuffle=True, random_state=seed)
     foldperf = {}
 
+    # Load info spreadsheet for use in separating data into folds
     info = pd.read_csv(data_info_path)
+    # Load training dataset
     dataset = HDFSTumorDataset(data_info_path, data_img_path, args.ORIG_IMG_DIM)
 
-
+    # Split data into k-folds and train/validate a model for each fold
     for fold, (train_idx, val_idx) in enumerate(splits.split(np.arange(len(info)))):
+        # Output current fold number
         print('Fold {}'.format(fold + 1))
+        # Select indices to use for train part of fold
         train_sampler = SubsetRandomSampler(train_idx)
+        # Select indices to use for validation part of fold
         valid_sampler = SubsetRandomSampler(val_idx)
 
+        # Setup dataloader for training portion of data
         train_loader = DataLoader(dataset, batch_size=args.BATCH_SIZE, sampler=train_sampler)
+        # Setup dataloader for validation portion of data
         valid_loader = DataLoader(dataset, batch_size=args.BATCH_SIZE, sampler=valid_sampler, drop_last=True)
 
+        # Create model to train for this fold
         model = HDFSModel1()
+        # Save model to CPU or GPU (if available)
         model.to(device)
+        # Set optimizer
         optimizer = optim.Adam(model.parameters(), lr=args.LR)
+        # Set loss function
         criterion = NegativeLogLikelihood(device)
 
-        history = {'train_loss': [], 'valid_loss': [], 'train_cind': [], 'valid_cind': []}
+        # Initialize dictionary to save evaluation metrics and trained model for each fold
+        history = {'train_loss': [], 'valid_loss': [], 'train_cind': [], 'valid_cind': [], 'model': None}
         for epoch in range(args.EPOCHS):
+            # Train the model
             train_loss, train_cind = train_epoch(model, device, train_loader, criterion, optimizer)
+            # validate the model
             valid_loss, valid_cind = valid_epoch(model, device, valid_loader, criterion)
 
+            # Get average metrics for this epoch
             train_loss = train_loss / len(train_loader.sampler)
             train_cind = train_cind / len(train_loader.sampler)
             valid_loss = valid_loss / len(valid_loader.sampler)
             valid_cind = valid_cind / len(valid_loader.sampler)
 
+            # Display average metrics for this epoch
             print("Epoch:{}/{} AVG Training Loss:{:.3f} AVG Validation Loss:{:.3f} "
-                  "AVG Training C-index:{:.2f} % AVG Validation C-index:{:.2f} %".format(epoch + 1,
+                  "AVG Training C-index:{:.2f}  AVG Validation C-index:{:.2f} ".format(epoch + 1,
                                                                                          args.EPOCHS,
                                                                                          train_loss,
                                                                                          valid_loss,
                                                                                          train_cind,
                                                                                          valid_cind))
+            # Store average metrics for this epoch
             history['train_loss'].append(train_loss)
             history['valid_loss'].append(valid_loss)
             history['train_cind'].append(train_cind)
             history['valid_cind'].append(valid_cind)
+        # END epoch loop
 
+        # Store trained model for this fold
+        history['model'] = model
+        # Store data for this fold
         foldperf['fold{}'.format(fold+1)] = history
+    # END k-fold loop
 
-        print('breakpoint goes here')
+    # Calculate average performance of each fold (finding mean from all epochs)
+    trainl_f, validl_f, trainc_f, validc_f = [], [], [], []
+    for f in range(1,args.K+1):
+        # Average Train loss for fold f
+        trainl_f.append(np.mean(foldperf['fold{}'.format(f)]['train_loss']))
+        # Average validation loss for fold f
+        validl_f.append(np.mean(foldperf['fold{}'.format(f)]['valid_loss']))
+        # Average training c-index for fold f
+        trainc_f.append(np.mean(foldperf['fold{}'.format(f)]['train_cind']))
+        # Average validation c-index for fold f
+        validc_f.append(np.mean(foldperf['fold{}'.format(f)]['valid_cind']))
 
+    print('Performance of {} fold cross validation'.format(args.K))
+    # Print the average loss and c-index for training and validation across all folds (Model performance)
+    print("Average Training Loss: {:.3f} \t Average Validation Loss: {:.3f} \t "
+          "Average Training C-Index: {:.2f} \t Average Validation C-Index: {:.2f}".format(np.mean(trainl_f),
+                                                                                          np.mean(validl_f),
+                                                                                          np.mean(trainc_f),
+                                                                                          np.mean(validc_f)))
+    # Find fold with best performance
+    best_loss = np.amin(validl_f)
+    best_cind = np.amax(validc_f)
+    # fold_w_best_loss = np.where(validl_f == best_loss)
+    # Get index of fold with best c-index
+    fold_w_best_cind = np.where(validc_f == best_cind)
+    # Get actual fold number (folds start at 1)
+    best_fold = int(fold_w_best_cind[0]) + 1
+    # Get model from the best fold
+    best_model = foldperf['fold{}'.format(best_fold)]['model']
+
+    print('breakpoint goes here')
+    # Return model, loss, and c-ind from the best fold
+    return best_model, best_loss, best_cind
 
 
 if __name__ == '__main__':
@@ -197,9 +277,10 @@ if __name__ == '__main__':
     train_img_path = os.path.join(args.DATA_DIR, args.IMG_LOC_PATH, str(args.ORIG_IMG_DIM), 'train/')
     test_img_path = os.path.join(args.DATA_DIR, args.IMG_LOC_PATH, str(args.ORIG_IMG_DIM), 'test/')
 
-    kfold_train(train_info_path, train_img_path, k=args.K, seed=args.SEED)
+    best_model, best_loss, best_cind = kfold_train(train_info_path, train_img_path, k=args.K, seed=args.SEED)
+
+    # TODO: run best_model through test loop
 
     # view_images(train_loader)
-
 
     print('breakpoint goes here')
