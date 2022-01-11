@@ -260,6 +260,32 @@ def kfold_train(data_info_path, data_img_path, k=None, seed=16):
     return best_model, best_loss, best_cind
 
 
+def test_model(model, data_info_path, data_img_path, device):
+    test_dataset = HDFSTumorDataset(data_info_path, data_img_path, args.ORIG_IMG_DIM)
+    test_loader = DataLoader(test_dataset, batch_size=args.BATCH_SIZE, shuffle=True, drop_last=True)
+
+    model.to(device)
+    model.eval()
+
+    criterion = NegativeLogLikelihood(device)
+
+    # Initialize dictionary to save evaluation metrics and trained model for each fold
+    # history = {'test_loss': None, 'test_ci': None}
+
+    test_loss, test_cind = valid_epoch(model, device, test_loader, criterion)
+
+    # Get average metrics for test epoch
+    test_loss = test_loss / len(test_loader.sampler)
+    test_cind = test_cind / len(test_loader.sampler)
+
+    # history['test_loss'] = test_loss
+    # history['test_cind'] = test_cind
+
+    print("Testing loss: {:.3f} \t Testing c-index: {:.2f}".format(test_loss, test_cind))
+
+    return test_loss, test_cind
+
+
 if __name__ == '__main__':
     # Preliminaries
     torch.cuda.empty_cache()
@@ -278,8 +304,9 @@ if __name__ == '__main__':
     test_img_path = os.path.join(args.DATA_DIR, args.IMG_LOC_PATH, str(args.ORIG_IMG_DIM), 'test/')
 
     best_model, best_loss, best_cind = kfold_train(train_info_path, train_img_path, k=args.K, seed=args.SEED)
-
+    torch.cuda.empty_cache()
     # TODO: run best_model through test loop
+    test_loss, test_cind = test_model(best_model, test_info_path, test_img_path, device)
 
     # view_images(train_loader)
 
