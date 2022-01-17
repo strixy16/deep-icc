@@ -1,3 +1,4 @@
+from datetime import datetime
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -225,9 +226,28 @@ def kfold_train(data_info_path, data_img_path, k=None, seed=16):
         foldperf['fold{}'.format(fold+1)] = history
     # END k-fold loop
 
+    fig, ax = plt.subplots(2, 2)
+    ax[0, 0].set_title('Training loss')
+    ax[0, 1].set_title('Validation loss')
+    ax[1, 0].set_title('Training c-index')
+    ax[1, 1].set_title('Validation c-index')
+    tloss_plot = plt.subplot(2, 2, 1)
+    teloss_plot = plt.subplot(2, 2, 2)
+    tcind_plot = plt.subplot(2, 2, 3)
+    tecind_plot = plt.subplot(2, 2, 4)
+    #
+    # tcind_plot.plot(foldperf[])
+
+
     # Calculate average performance of each fold (finding mean from all epochs)
     trainl_f, validl_f, trainc_f, validc_f = [], [], [], []
     for f in range(1,args.K+1):
+        # Plotting metrics across epochs of fold f
+        tloss_plot.plot(foldperf['fold{}'.format(f)]['train_loss'], label='Fold {}'.format(f))
+        teloss_plot.plot(foldperf['fold{}'.format(f)]['valid_loss'], label='Fold {}'.format(f))
+        tcind_plot.plot(foldperf['fold{}'.format(f)]['train_cind'], label='Fold {}'.format(f))
+        tecind_plot.plot(foldperf['fold{}'.format(f)]['valid_cind'], label='Fold {}'.format(f))
+
         # Average Train loss for fold f
         trainl_f.append(np.mean(foldperf['fold{}'.format(f)]['train_loss']))
         # Average validation loss for fold f
@@ -236,6 +256,11 @@ def kfold_train(data_info_path, data_img_path, k=None, seed=16):
         trainc_f.append(np.mean(foldperf['fold{}'.format(f)]['train_cind']))
         # Average validation c-index for fold f
         validc_f.append(np.mean(foldperf['fold{}'.format(f)]['valid_cind']))
+
+    labels = ["Fold 1", "Fold 2", "Fold 3", "Fold 4", "Fold 5"]
+    fig.legend([tloss_plot, teloss_plot, tcind_plot, tecind_plot], labels=labels, loc="upper right")
+    fig.suptitle("Evaluation metrics for k-fold cross validation")
+    plt.show()
 
     print('Performance of {} fold cross validation'.format(args.K))
     # Print the average loss and c-index for training and validation across all folds (Model performance)
@@ -255,7 +280,14 @@ def kfold_train(data_info_path, data_img_path, k=None, seed=16):
     # Get model from the best fold
     best_model = foldperf['fold{}'.format(best_fold)]['model']
 
-    print('breakpoint goes here')
+    print("Performance of best fold, {}:".format(best_fold))
+    print("Best Training Loss: {:.3f} \t Best Validation Loss: {:3f} \t"
+          "Best Training C-index: {:.3f} \t Best Validation C-index: {:.2f}".format(trainl_f[best_fold],
+                                                                                   best_loss,
+                                                                                   trainc_f[best_fold],
+                                                                                   best_cind))
+
+    # print('breakpoint goes here')
     # Return model, loss, and c-ind from the best fold
     return best_model, best_loss, best_cind
 
@@ -291,6 +323,11 @@ if __name__ == '__main__':
     torch.cuda.empty_cache()
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+    # Output setup
+    out_dir = 'Output/' + args.MODEL_NAME + '/' + datetime.now().strftime("%Y_%m_%d_%H%M")
+    out_path = os.path.join(args.DATA_DIR, out_dir)
+    os.makedirs(out_path)
+
     # Random setup
     random.seed(args.SEED)
     torch.manual_seed(args.SEED)
@@ -303,11 +340,21 @@ if __name__ == '__main__':
     train_img_path = os.path.join(args.DATA_DIR, args.IMG_LOC_PATH, str(args.ORIG_IMG_DIM), 'train/')
     test_img_path = os.path.join(args.DATA_DIR, args.IMG_LOC_PATH, str(args.ORIG_IMG_DIM), 'test/')
 
-    best_model, best_loss, best_cind = kfold_train(train_info_path, train_img_path, k=args.K, seed=args.SEED)
+    best_model, valid_loss, valid_cind = kfold_train(train_info_path, train_img_path, k=args.K, seed=args.SEED)
     torch.cuda.empty_cache()
-    # TODO: run best_model through test loop
+
     test_loss, test_cind = test_model(best_model, test_info_path, test_img_path, device)
+
+    # Save best model
+    torch.save(best_model, os.path.join(out_path,'k_cross_HDFSMode1.pt'))
+
+    # Save model results
+    results = [valid_loss, test_loss, valid_cind, test_cind]
+    results = np.reshape(results, [1, 4])
+    results_df = pd.DataFrame(results)
+    results_df.columns = ['Valid_Loss', 'Test_Loss', 'Valid_C_index', 'Test_C_index']
+    results_df.to_csv(os.path.join(out_path, 'eval_results.csv'), index=False)
 
     # view_images(train_loader)
 
-    print('breakpoint goes here')
+    # print('breakpoint goes here')

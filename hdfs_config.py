@@ -11,10 +11,12 @@ IMG_LOC_PATH = 'Images/Labelled_Tumors/'
 # Dimension of CT image to load
 ORIG_IMG_DIM = 221
 
+MODEL_NAME = "HDFSModel1"
+
 SEED = 16
 
-BATCH_SIZE = 64
-EPOCHS = 5
+BATCH_SIZE = 32
+EPOCHS = 25
 LR = 0.003
 
 # Validation
