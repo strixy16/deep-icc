@@ -8,6 +8,7 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 import torch.optim as optim
+from torchinfo import summary
 from torch.utils.data import DataLoader, SubsetRandomSampler
 
 from hdfs_data_loading import *
@@ -248,6 +249,7 @@ def kfold_train(data_info_path, data_img_path, k=None, seed=16):
         tcind_plot.plot(foldperf['fold{}'.format(f)]['train_cind'], label='Fold {}'.format(f))
         tecind_plot.plot(foldperf['fold{}'.format(f)]['valid_cind'], label='Fold {}'.format(f))
 
+
         # Average Train loss for fold f
         trainl_f.append(np.mean(foldperf['fold{}'.format(f)]['train_loss']))
         # Average validation loss for fold f
@@ -270,26 +272,30 @@ def kfold_train(data_info_path, data_img_path, k=None, seed=16):
                                                                                           np.mean(trainc_f),
                                                                                           np.mean(validc_f)))
     # Find fold with best performance
-    best_loss = np.amin(validl_f)
-    best_cind = np.amax(validc_f)
+    best_avg_loss = np.amin(validl_f)
+    best_avg_cind = np.amax(validc_f)
     # fold_w_best_loss = np.where(validl_f == best_loss)
     # Get index of fold with best c-index
-    fold_w_best_cind = np.where(validc_f == best_cind)
+    fold_w_best_avg_cind = np.where(validc_f == best_avg_cind)
     # Get actual fold number (folds start at 1)
-    best_fold = int(fold_w_best_cind[0]) + 1
+    best_fold = int(fold_w_best_avg_cind[0]) + 1
     # Get model from the best fold
     best_model = foldperf['fold{}'.format(best_fold)]['model']
+    tr_final_loss = foldperf['fold{}'.format(best_fold)]['train_loss'][-1]
+    tr_final_cind = foldperf['fold{}'.format(best_fold)]['train_cind'][-1]
+    val_final_loss = foldperf['fold{}'.format(best_fold)]['valid_loss'][-1]
+    val_final_cind = foldperf['fold{}'.format(best_fold)]['valid_cind'][-1]
 
     print("Performance of best fold, {}:".format(best_fold))
     print("Best Training Loss: {:.3f} \t Best Validation Loss: {:3f} \t"
-          "Best Training C-index: {:.3f} \t Best Validation C-index: {:.2f}".format(trainl_f[best_fold],
-                                                                                   best_loss,
-                                                                                   trainc_f[best_fold],
-                                                                                   best_cind))
+          "Best Training C-index: {:.2f} \t Best Validation C-index: {:.2f}".format(tr_final_loss,
+                                                                                   val_final_loss,
+                                                                                   tr_final_cind,
+                                                                                   val_final_cind))
 
     # print('breakpoint goes here')
     # Return model, loss, and c-ind from the best fold
-    return best_model, best_loss, best_cind
+    return best_model, tr_final_loss, tr_final_cind, val_final_loss, val_final_cind
 
 
 def test_model(model, data_info_path, data_img_path, device):
@@ -340,7 +346,7 @@ if __name__ == '__main__':
     train_img_path = os.path.join(args.DATA_DIR, args.IMG_LOC_PATH, str(args.ORIG_IMG_DIM), 'train/')
     test_img_path = os.path.join(args.DATA_DIR, args.IMG_LOC_PATH, str(args.ORIG_IMG_DIM), 'test/')
 
-    best_model, valid_loss, valid_cind = kfold_train(train_info_path, train_img_path, k=args.K, seed=args.SEED)
+    best_model, train_loss, train_cind, valid_loss, valid_cind = kfold_train(train_info_path, train_img_path, k=args.K, seed=args.SEED)
     torch.cuda.empty_cache()
 
     test_loss, test_cind = test_model(best_model, test_info_path, test_img_path, device)
@@ -349,11 +355,19 @@ if __name__ == '__main__':
     torch.save(best_model, os.path.join(out_path,'k_cross_HDFSMode1.pt'))
 
     # Save model results
-    results = [valid_loss, test_loss, valid_cind, test_cind]
-    results = np.reshape(results, [1, 4])
+    model_stats = summary(best_model, input_size=(args.BATCH_SIZE, 1, args.ORIG_IMG_DIM, args.ORIG_IMG_DIM))
+    summary_str = str(model_stats)
+
+    results = [train_loss, valid_loss, test_loss, train_cind, valid_cind, test_cind]
+    results = np.reshape(results, [1, 6])
     results_df = pd.DataFrame(results)
-    results_df.columns = ['Valid_Loss', 'Test_Loss', 'Valid_C_index', 'Test_C_index']
-    results_df.to_csv(os.path.join(out_path, 'eval_results.csv'), index=False)
+    results_df.columns = ['Train_Loss', 'Valid_Loss', 'Test_Loss', 'Train_C_index', 'Valid_C_index', 'Test_C_index']
+    str_results = results_df.to_string(index=False)
+
+    with open(os.path.join(out_path, 'model_and_results.txt'), 'w') as out_file:
+        out_file.write(str_results)
+        out_file.write("\n")
+        out_file.write(summary_str)
 
     # view_images(train_loader)
 
