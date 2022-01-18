@@ -1,65 +1,67 @@
 from datetime import datetime
+from lifelines.utils import concordance_index
 import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
+# import numpy as np
+# import pandas as pd
+import contextlib
 from sklearn.model_selection import KFold
-import torch.cuda
-import torch
-import torch.nn as nn
-from torch.nn import functional as F
+# import torch.cuda
+# import torch
+# import torch.nn as nn
+# from torch.nn import functional as F
 import torch.optim as optim
 from torchinfo import summary
 from torch.utils.data import DataLoader, SubsetRandomSampler
 
 from hdfs_data_loading import *
-from rfs_utils import *
+# from rfs_utils import *
 import hdfs_config as args
+from hdfs_models import *
 
-
-class HDFSModel1(nn.Module):
-    def __init__(self):
-        super(HDFSModel1, self).__init__()
-        # ImgIn shape = (?, 1, 221, 221)
-        # Conv -> (?, 16, 72, 72)
-        # Pool -> (?, 16, 36, 36)
-        self.layer1 = nn.Sequential(
-            nn.Conv2d(1, 16, kernel_size=7, stride=3),
-            nn.SELU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-            nn.Dropout(0.5)
-        )
-        # Conv -> (?, 16, 16, 16)
-        self.layer2 = nn.Sequential(
-            nn.Conv2d(16, 16, kernel_size=5, stride=2),
-            nn.SELU(),
-            nn.Dropout(0.5)
-        )
-        # Conv -> (?, 8, 7, 7)
-        # Pool -> (?, 8, 3, 3)
-        self.layer3 = nn.Sequential(
-            nn.Conv2d(16, 8, kernel_size=3, stride=2),
-            nn.SELU(),
-            nn.MaxPool2d(kernel_size=2, stride=2)
-        )
-
-        # FC1 -> 8*3*3 inputs -> 8 outputs
-        # FC2 -> 8 -> 3
-        # Final -> 3 -> 1
-        self.layer4 = nn.Sequential(
-            nn.Linear(8*3*3, 8),
-            nn.SELU(),
-            nn.Linear(8, 3),
-            nn.SELU(),
-            nn.Linear(3, 1)
-        )
-
-    def forward(self, x):
-        x = self.layer1(x)
-        x = self.layer2(x)
-        x = self.layer3(x)
-        x = x.view(x.size(0), -1)
-        x = self.layer4(x)
-        return x
+# class HDFSModel1(nn.Module):
+#     def __init__(self):
+#         super(HDFSModel1, self).__init__()
+#         # ImgIn shape = (?, 1, 221, 221)
+#         # Conv -> (?, 16, 72, 72)
+#         # Pool -> (?, 16, 36, 36)
+#         self.layer1 = nn.Sequential(
+#             nn.Conv2d(1, 16, kernel_size=7, stride=3),
+#             nn.SELU(),
+#             nn.MaxPool2d(kernel_size=2, stride=2),
+#             nn.Dropout(0.5)
+#         )
+#         # Conv -> (?, 16, 16, 16)
+#         self.layer2 = nn.Sequential(
+#             nn.Conv2d(16, 16, kernel_size=5, stride=2),
+#             nn.SELU(),
+#             nn.Dropout(0.5)
+#         )
+#         # Conv -> (?, 8, 7, 7)
+#         # Pool -> (?, 8, 3, 3)
+#         self.layer3 = nn.Sequential(
+#             nn.Conv2d(16, 8, kernel_size=3, stride=2),
+#             nn.SELU(),
+#             nn.MaxPool2d(kernel_size=2, stride=2)
+#         )
+#
+#         # FC1 -> 8*3*3 inputs -> 8 outputs
+#         # FC2 -> 8 -> 3
+#         # Final -> 3 -> 1
+#         self.layer4 = nn.Sequential(
+#             nn.Linear(8*3*3, 8),
+#             nn.SELU(),
+#             nn.Linear(8, 3),
+#             nn.SELU(),
+#             nn.Linear(3, 1)
+#         )
+#
+#     def forward(self, x):
+#         x = self.layer1(x)
+#         x = self.layer2(x)
+#         x = self.layer3(x)
+#         x = x.view(x.size(0), -1)
+#         x = self.layer4(x)
+#         return x
 
 
 def view_images(data_loader):
@@ -184,7 +186,7 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None, seed=16):
         valid_loader = DataLoader(dataset, batch_size=args.BATCH_SIZE, sampler=valid_sampler, drop_last=True)
 
         # Create model to train for this fold
-        model = HDFSModel1()
+        model = select_model(args.MODEL_NAME)
         # Save model to CPU or GPU (if available)
         model.to(device)
         # Set optimizer
@@ -227,7 +229,8 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None, seed=16):
         foldperf['fold{}'.format(fold+1)] = history
     # END k-fold loop
 
-    fig, ax = plt.subplots(2, 2)
+    # Setting up evaluation plots showing loss and c-index for each fold across all epochs
+    fig, ax = plt.subplots(2, 2, figsize=(14,10))
     ax[0, 0].set_title('Training loss')
     ax[0, 1].set_title('Validation loss')
     ax[1, 0].set_title('Training c-index')
@@ -236,8 +239,6 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None, seed=16):
     teloss_plot = plt.subplot(2, 2, 2)
     tcind_plot = plt.subplot(2, 2, 3)
     tecind_plot = plt.subplot(2, 2, 4)
-    #
-    # tcind_plot.plot(foldperf[])
 
 
     # Calculate average performance of each fold (finding mean from all epochs)
@@ -259,11 +260,15 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None, seed=16):
         # Average validation c-index for fold f
         validc_f.append(np.mean(foldperf['fold{}'.format(f)]['valid_cind']))
 
+    # Setting up legend for evaluation plots
     labels = ["Fold 1", "Fold 2", "Fold 3", "Fold 4", "Fold 5"]
     fig.legend([tloss_plot, teloss_plot, tcind_plot, tecind_plot], labels=labels, loc="upper right")
+    # Setting overall title
     fig.suptitle("Evaluation metrics for k-fold cross validation")
+    # Save evaluation plots figure
     plt.savefig(os.path.join(out_dir_path, 'eval_plots.png'))
 
+    # Output performance for this run
     print('Performance of {} fold cross validation'.format(args.K))
     # Print the average loss and c-index for training and validation across all folds (Model performance)
     print("Average Training Loss: {:.3f} \t Average Validation Loss: {:.3f} \t "
@@ -286,6 +291,7 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None, seed=16):
     val_final_loss = foldperf['fold{}'.format(best_fold)]['valid_loss'][-1]
     val_final_cind = foldperf['fold{}'.format(best_fold)]['valid_cind'][-1]
 
+    # Print the best fold's final results
     print("Performance of best fold, {}:".format(best_fold))
     print("Best Training Loss: {:.3f} \t Best Validation Loss: {:3f} \t"
           "Best Training C-index: {:.2f} \t Best Validation C-index: {:.2f}".format(tr_final_loss,
@@ -293,7 +299,6 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None, seed=16):
                                                                                    tr_final_cind,
                                                                                    val_final_cind))
 
-    # print('breakpoint goes here')
     # Return model, loss, and c-ind from the best fold
     return best_model, tr_final_loss, tr_final_cind, val_final_loss, val_final_cind
 
@@ -339,6 +344,12 @@ if __name__ == '__main__':
     torch.manual_seed(args.SEED)
     torch.cuda.manual_seed(args.SEED)
     np.random.seed(args.SEED)
+
+    # Save out parameters used for the run
+    save_param_fname = os.path.join(out_path, 'parameters.txt')
+    with open(save_param_fname, 'w') as f:
+        with contextlib.redirect_stdout(f):
+            help(args)
 
     train_info_path = os.path.join(args.DATA_DIR, args.TRAIN_LABEL_FILE)
     test_info_path = os.path.join(args.DATA_DIR, args.TEST_LABEL_FILE)
