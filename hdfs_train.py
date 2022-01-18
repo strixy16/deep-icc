@@ -159,7 +159,7 @@ def valid_epoch(model, device, dataloader, criterion):
     return coxLoss, conInd
 
 
-def kfold_train(data_info_path, data_img_path, k=None, seed=16):
+def kfold_train(data_info_path, data_img_path, out_dir_path, k=None, seed=16):
     # K-fold cross validation setup
     splits = KFold(n_splits=k, shuffle=True, random_state=seed)
     foldperf = {}
@@ -262,7 +262,7 @@ def kfold_train(data_info_path, data_img_path, k=None, seed=16):
     labels = ["Fold 1", "Fold 2", "Fold 3", "Fold 4", "Fold 5"]
     fig.legend([tloss_plot, teloss_plot, tcind_plot, tecind_plot], labels=labels, loc="upper right")
     fig.suptitle("Evaluation metrics for k-fold cross validation")
-    plt.show()
+    plt.savefig(os.path.join(out_dir_path, 'eval_plots.png'))
 
     print('Performance of {} fold cross validation'.format(args.K))
     # Print the average loss and c-index for training and validation across all folds (Model performance)
@@ -346,7 +346,8 @@ if __name__ == '__main__':
     train_img_path = os.path.join(args.DATA_DIR, args.IMG_LOC_PATH, str(args.ORIG_IMG_DIM), 'train/')
     test_img_path = os.path.join(args.DATA_DIR, args.IMG_LOC_PATH, str(args.ORIG_IMG_DIM), 'test/')
 
-    best_model, train_loss, train_cind, valid_loss, valid_cind = kfold_train(train_info_path, train_img_path, k=args.K, seed=args.SEED)
+    best_model, train_loss, train_cind, valid_loss, valid_cind = kfold_train(train_info_path, train_img_path, out_path,
+                                                                             k=args.K, seed=args.SEED)
     torch.cuda.empty_cache()
 
     test_loss, test_cind = test_model(best_model, test_info_path, test_img_path, device)
