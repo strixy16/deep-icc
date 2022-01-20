@@ -17,7 +17,7 @@ SEED = 16
 
 BATCH_SIZE = 32
 EPOCHS = 20
-LR = 0.003
+LR = 0.0001
 
 # Validation
 K = 5

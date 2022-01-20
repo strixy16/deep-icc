@@ -190,7 +190,8 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None, seed=16):
         # Save model to CPU or GPU (if available)
         model.to(device)
         # Set optimizer
-        optimizer = optim.Adam(model.parameters(), lr=args.LR)
+        # optimizer = optim.Adam(model.parameters(), lr=args.LR)
+        optimizer = optim.SGD(model.parameters(), lr=args.LR)
         # Set loss function
         criterion = NegativeLogLikelihood(device)
 

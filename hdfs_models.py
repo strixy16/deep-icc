@@ -88,7 +88,7 @@ class LiCNN(nn.Module):
         self.layer4 = nn.AdaptiveMaxPool2d(8)
 
         self.layer5 = nn.Sequential(
-            nn.Linear(8*8, 500),
+            nn.Linear(64*8*8, 500),
             nn.ReLU(),
             nn.Dropout(0.3),
             nn.Linear(500, 100),
@@ -100,8 +100,10 @@ class LiCNN(nn.Module):
     def forward(self, x):
         x = self.layer1(x)
         x = self.layer2(x)
-        x = x.view(x.size(0), -1)
         x = self.layer3(x)
+        x = self.layer4(x)
+        x = x.view(x.size(0), -1)
+        x = self.layer5(x)
         return x
 
 #--------------------------- Evaluation Functions ---------------------------------------
