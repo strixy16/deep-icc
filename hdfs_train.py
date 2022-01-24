@@ -346,12 +346,14 @@ if __name__ == '__main__':
 
     if not args.DEBUG:
         with open(os.path.join(out_path, 'model_and_results.txt'), 'w') as out_file:
+            out_file.write("Best fold model results")
             out_file.write(str_results)
             out_file.write("\n")
             out_file.write(summary_str)
 
         # Save best model
-        torch.save(best_model, os.path.join(out_path,'k_cross_HDFSMode1.pt'))
+        model_file_name = 'k_cross_' + args.MODEL_NAME + '.pt'
+        torch.save(best_model, os.path.join(out_path, model_file_name))
 
     # view_images(train_loader)
 
