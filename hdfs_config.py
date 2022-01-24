@@ -22,4 +22,7 @@ LR = 0.0001
 # Validation
 K = 5
 
+# Debugging
+# If true, prevents output from saving
+DEBUG = False
 
