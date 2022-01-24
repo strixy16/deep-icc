@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 # import numpy as np
 # import pandas as pd
 import contextlib
-from sklearn.model_selection import KFold
+from sklearn.model_selection import GroupKFold, KFold
 # import torch.cuda
 # import torch
 # import torch.nn as nn
@@ -117,17 +117,23 @@ def valid_epoch(model, device, dataloader, criterion):
 
 
 def kfold_train(data_info_path, data_img_path, out_dir_path, k=None, seed=16):
-    # K-fold cross validation setup
-    splits = KFold(n_splits=k, shuffle=True, random_state=seed)
-    foldperf = {}
-
+    
     # Load info spreadsheet for use in separating data into folds
     info = pd.read_csv(data_info_path)
-    # Load training dataset
-    dataset = HDFSTumorDataset(data_info_path, data_img_path, args.ORIG_IMG_DIM)
+    # Load training hdfs_dataset
+    hdfs_dataset = HDFSTumorDataset(data_info_path, data_img_path, args.ORIG_IMG_DIM)
+
+    # K-fold cross validation setup
+    # Group fold keeps all slices from same patient together
+    group_kfold = GroupKFold(n_splits=k)
+    groups = hdfs_dataset.info.Pat_ID.to_numpy()
+
+    foldperf = {}
 
     # Split data into k-folds and train/validate a model for each fold
-    for fold, (train_idx, val_idx) in enumerate(splits.split(np.arange(len(info)))):
+    # for fold, (train_idx, val_idx) in enumerate(splits.split(np.arange(len(u_pats)))):
+    # fold = 0
+    for fold, (train_idx, val_idx) in enumerate(group_kfold.split(hdfs_dataset.img_fname, hdfs_dataset.time_label, groups)):
         # Output current fold number
         print('Fold {}'.format(fold + 1))
         # Select indices to use for train part of fold
@@ -136,9 +142,9 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None, seed=16):
         valid_sampler = SubsetRandomSampler(val_idx)
 
         # Setup dataloader for training portion of data
-        train_loader = DataLoader(dataset, batch_size=args.BATCH_SIZE, sampler=train_sampler)
+        train_loader = DataLoader(hdfs_dataset, batch_size=args.BATCH_SIZE, sampler=train_sampler)
         # Setup dataloader for validation portion of data
-        valid_loader = DataLoader(dataset, batch_size=args.BATCH_SIZE, sampler=valid_sampler, drop_last=True)
+        valid_loader = DataLoader(hdfs_dataset, batch_size=args.BATCH_SIZE, sampler=valid_sampler, drop_last=True)
 
         # Create model to train for this fold
         model = select_model(args.MODEL_NAME)
@@ -183,6 +189,7 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None, seed=16):
         history['model'] = model
         # Store data for this fold
         foldperf['fold{}'.format(fold+1)] = history
+        # fold += 1
     # END k-fold loop
 
     # Setting up evaluation plots showing loss and c-index for each fold across all epochs
@@ -221,8 +228,12 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None, seed=16):
     fig.legend([tloss_plot, teloss_plot, tcind_plot, tecind_plot], labels=labels, loc="upper right")
     # Setting overall title
     fig.suptitle("Evaluation metrics for k-fold cross validation")
-    # Save evaluation plots figure
-    plt.savefig(os.path.join(out_dir_path, 'eval_plots.png'))
+
+    if not args.DEBUG:
+        # Save evaluation plots figure
+        plt.savefig(os.path.join(out_dir_path, 'eval_plots.png'))
+    else:
+        plt.show()
 
     # Output performance for this run
     print('Performance of {} fold cross validation'.format(args.K))
@@ -290,22 +301,25 @@ if __name__ == '__main__':
     torch.cuda.empty_cache()
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    # Output setup
-    out_dir = 'Output/' + args.MODEL_NAME + '/' + datetime.now().strftime("%Y_%m_%d_%H%M")
-    out_path = os.path.join(args.DATA_DIR, out_dir)
-    os.makedirs(out_path)
-
     # Random setup
     random.seed(args.SEED)
     torch.manual_seed(args.SEED)
     torch.cuda.manual_seed(args.SEED)
     np.random.seed(args.SEED)
 
-    # Save out parameters used for the run
-    save_param_fname = os.path.join(out_path, 'parameters.txt')
-    with open(save_param_fname, 'w') as f:
-        with contextlib.redirect_stdout(f):
-            help(args)
+    
+    # Output setup
+    out_dir = 'Output/' + args.MODEL_NAME + '/' + datetime.now().strftime("%Y_%m_%d_%H%M")
+    out_path = os.path.join(args.DATA_DIR, out_dir)
+
+    if not args.DEBUG:
+        os.makedirs(out_path)
+
+        # Save out parameters used for the run
+        save_param_fname = os.path.join(out_path, 'parameters.txt')
+        with open(save_param_fname, 'w') as f:
+            with contextlib.redirect_stdout(f):
+                help(args)
 
     train_info_path = os.path.join(args.DATA_DIR, args.TRAIN_LABEL_FILE)
     test_info_path = os.path.join(args.DATA_DIR, args.TEST_LABEL_FILE)
@@ -319,8 +333,6 @@ if __name__ == '__main__':
 
     test_loss, test_cind = test_model(best_model, test_info_path, test_img_path, device)
 
-    # Save best model
-    torch.save(best_model, os.path.join(out_path,'k_cross_HDFSMode1.pt'))
 
     # Save model results
     model_stats = summary(best_model, input_size=(args.BATCH_SIZE, 1, args.ORIG_IMG_DIM, args.ORIG_IMG_DIM))
@@ -332,10 +344,14 @@ if __name__ == '__main__':
     results_df.columns = ['Train_Loss', 'Valid_Loss', 'Test_Loss', 'Train_C_index', 'Valid_C_index', 'Test_C_index']
     str_results = results_df.to_string(index=False)
 
-    with open(os.path.join(out_path, 'model_and_results.txt'), 'w') as out_file:
-        out_file.write(str_results)
-        out_file.write("\n")
-        out_file.write(summary_str)
+    if not args.DEBUG:
+        with open(os.path.join(out_path, 'model_and_results.txt'), 'w') as out_file:
+            out_file.write(str_results)
+            out_file.write("\n")
+            out_file.write(summary_str)
+
+        # Save best model
+        torch.save(best_model, os.path.join(out_path,'k_cross_HDFSMode1.pt'))
 
     # view_images(train_loader)
 
