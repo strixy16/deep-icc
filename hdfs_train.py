@@ -18,51 +18,6 @@ from hdfs_data_loading import *
 import hdfs_config as args
 from hdfs_models import *
 
-# class HDFSModel1(nn.Module):
-#     def __init__(self):
-#         super(HDFSModel1, self).__init__()
-#         # ImgIn shape = (?, 1, 221, 221)
-#         # Conv -> (?, 16, 72, 72)
-#         # Pool -> (?, 16, 36, 36)
-#         self.layer1 = nn.Sequential(
-#             nn.Conv2d(1, 16, kernel_size=7, stride=3),
-#             nn.SELU(),
-#             nn.MaxPool2d(kernel_size=2, stride=2),
-#             nn.Dropout(0.5)
-#         )
-#         # Conv -> (?, 16, 16, 16)
-#         self.layer2 = nn.Sequential(
-#             nn.Conv2d(16, 16, kernel_size=5, stride=2),
-#             nn.SELU(),
-#             nn.Dropout(0.5)
-#         )
-#         # Conv -> (?, 8, 7, 7)
-#         # Pool -> (?, 8, 3, 3)
-#         self.layer3 = nn.Sequential(
-#             nn.Conv2d(16, 8, kernel_size=3, stride=2),
-#             nn.SELU(),
-#             nn.MaxPool2d(kernel_size=2, stride=2)
-#         )
-#
-#         # FC1 -> 8*3*3 inputs -> 8 outputs
-#         # FC2 -> 8 -> 3
-#         # Final -> 3 -> 1
-#         self.layer4 = nn.Sequential(
-#             nn.Linear(8*3*3, 8),
-#             nn.SELU(),
-#             nn.Linear(8, 3),
-#             nn.SELU(),
-#             nn.Linear(3, 1)
-#         )
-#
-#     def forward(self, x):
-#         x = self.layer1(x)
-#         x = self.layer2(x)
-#         x = self.layer3(x)
-#         x = x.view(x.size(0), -1)
-#         x = self.layer4(x)
-#         return x
-
 
 def view_images(data_loader):
     # Function to view images that are loaded in in the correct way
