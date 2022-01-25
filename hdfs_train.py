@@ -70,6 +70,9 @@ def train_epoch(model, device, dataloader, criterion, optimizer):
         # Forward pass through model
         risk_pred = model(X)
 
+        if torch.any(torch.isnan(risk_pred)):
+            print("NaNs predicted by model.")
+
         # Calculate loss and evaluation metrics
         train_loss = criterion(-risk_pred, t, e, model)
         coxLoss += train_loss.item() * t.size(0)
@@ -150,9 +153,15 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None, seed=16):
         model = select_model(args.MODEL_NAME)
         # Save model to CPU or GPU (if available)
         model.to(device)
+        
         # Set optimizer
-        # optimizer = optim.Adam(model.parameters(), lr=args.LR)
-        optimizer = optim.SGD(model.parameters(), lr=args.LR)
+        if args.OPTIM == 'SGD':
+            optimizer = optim.SGD(model.parameters(), lr=args.LR)
+        elif args.OPTIM == 'Adam':
+            optimizer = optim.Adam(model.parameters(), lr=args.LR)
+        else:
+            raise Exception('Invalid optimizer. Must be SGD or Adam.')
+
         # Set loss function
         criterion = NegativeLogLikelihood(device)
 
@@ -189,6 +198,8 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None, seed=16):
         history['model'] = model
         # Store data for this fold
         foldperf['fold{}'.format(fold+1)] = history
+        if fold == 1:
+            print("Want fold 2")
         # fold += 1
     # END k-fold loop
 
@@ -326,6 +337,8 @@ if __name__ == '__main__':
 
     train_img_path = os.path.join(args.DATA_DIR, args.IMG_LOC_PATH, str(args.ORIG_IMG_DIM), 'train/')
     test_img_path = os.path.join(args.DATA_DIR, args.IMG_LOC_PATH, str(args.ORIG_IMG_DIM), 'test/')
+
+    # best_model = torch.load(os.path.join(args.DATA_DIR, 'Output/LiCNN/2022_01_24_1941/k_cross_LiCNN_fold2_.pt'))
 
     best_model, train_loss, train_cind, valid_loss, valid_cind = kfold_train(train_info_path, train_img_path, out_path,
                                                                              k=args.K, seed=args.SEED)
