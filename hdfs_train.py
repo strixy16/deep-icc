@@ -1,20 +1,13 @@
 from datetime import datetime
 from lifelines.utils import concordance_index
 import matplotlib.pyplot as plt
-# import numpy as np
-# import pandas as pd
 import contextlib
 from sklearn.model_selection import GroupKFold, KFold
-# import torch.cuda
-# import torch
-# import torch.nn as nn
-# from torch.nn import functional as F
 import torch.optim as optim
 from torchinfo import summary
 from torch.utils.data import DataLoader, SubsetRandomSampler
 
 from hdfs_data_loading import *
-# from rfs_utils import *
 import hdfs_config as args
 from hdfs_models import *
 
@@ -106,6 +99,9 @@ def valid_epoch(model, device, dataloader, criterion):
         # Pass data forward through trained model
         risk_pred = model(X)
 
+        if torch.any(torch.isnan(risk_pred)):
+            print("NaNs predicted by model.")
+
         # Calculate loss and evaluation metrics
         val_loss = criterion(-risk_pred, t, e, model)
         coxLoss += val_loss.item() * t.size(0)
@@ -150,9 +146,15 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None, seed=16):
         model = select_model(args.MODEL_NAME)
         # Save model to CPU or GPU (if available)
         model.to(device)
+        
         # Set optimizer
-        # optimizer = optim.Adam(model.parameters(), lr=args.LR)
-        optimizer = optim.SGD(model.parameters(), lr=args.LR)
+        if args.OPTIM == 'SGD':
+            optimizer = optim.SGD(model.parameters(), lr=args.LR)
+        elif args.OPTIM == 'Adam':
+            optimizer = optim.Adam(model.parameters(), lr=args.LR)
+        else:
+            raise Exception('Invalid optimizer. Must be SGD or Adam.')
+
         # Set loss function
         criterion = NegativeLogLikelihood(device)
 
@@ -260,11 +262,23 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None, seed=16):
 
     # Print the best fold's final results
     print("Performance of best fold, {}:".format(best_fold))
-    print("Best Training Loss: {:.3f} \t Best Validation Loss: {:3f} \t"
+    print("Best Training Loss: {:.3f} \t Best Validation Loss: {:.3f} \t"
           "Best Training C-index: {:.2f} \t Best Validation C-index: {:.2f}".format(tr_final_loss,
                                                                                    val_final_loss,
                                                                                    tr_final_cind,
                                                                                    val_final_cind))
+
+    with open(os.path.join(out_dir_path, 'k_fold_results.txt'), 'w') as out_file:
+            out_file.write("Performance of {} fold cross validation \n".format(args.K))
+            out_file.write("Average Training Loss: {:.3f} \t Average Validation Loss: {:.3f}\nAverage Training C-Index: {:.2f} \t Average Validation C-Index: {:.2f}\n".format(np.mean(trainl_f), np.mean(validl_f), np.mean(trainc_f), np.mean(validc_f)))
+            out_file.write('\n')
+            out_file.write("Performance of best fold, {}: \n".format(best_fold))
+            out_file.write("Best Training Loss: {:.3f} \t Best Validation Loss: {:.3f} \n"
+                           "Best Training C-index: {:.2f} \t Best Validation C-index: {:.2f} \n".format(tr_final_loss,
+                                                                                   val_final_loss,
+                                                                                   tr_final_cind,
+                                                                                   val_final_cind))
+            out_file.write("\n")
 
     # Return model, loss, and c-ind from the best fold
     return best_model, tr_final_loss, tr_final_cind, val_final_loss, val_final_cind
@@ -338,20 +352,25 @@ if __name__ == '__main__':
     model_stats = summary(best_model, input_size=(args.BATCH_SIZE, 1, args.ORIG_IMG_DIM, args.ORIG_IMG_DIM))
     summary_str = str(model_stats)
 
-    results = [train_loss, valid_loss, test_loss, train_cind, valid_cind, test_cind]
-    results = np.reshape(results, [1, 6])
-    results_df = pd.DataFrame(results)
-    results_df.columns = ['Train_Loss', 'Valid_Loss', 'Test_Loss', 'Train_C_index', 'Valid_C_index', 'Test_C_index']
-    str_results = results_df.to_string(index=False)
+    # results = [train_loss, valid_loss, test_loss, train_cind, valid_cind, test_cind]
+    # results = np.reshape(results, [1, 6])
+    # results_df = pd.DataFrame(results)
+    # results_df.columns = ['Train_Loss', 'Valid_Loss', 'Test_Loss', 'Train_C_index', 'Valid_C_index', 'Test_C_index']
+    # str_results = results_df.to_string(index=False)
 
     if not args.DEBUG:
-        with open(os.path.join(out_path, 'model_and_results.txt'), 'w') as out_file:
-            out_file.write(str_results)
-            out_file.write("\n")
+        # Add testing results to results.txt file made in kfold_train
+        with open(os.path.join(out_path, 'k_fold_results.txt'), 'a') as kfold_file:
+            kfold_file.write("Testing Results of Best Fold: \n")
+            kfold_file.write("Testing Loss: {:.3f} \t Testing C-Index: {:.2f}\n\n".format(test_loss, test_cind))
+
+        # Save summary of model
+        with open(os.path.join(out_path, 'model_summary.txt'), 'w') as out_file:
             out_file.write(summary_str)
 
         # Save best model
-        torch.save(best_model, os.path.join(out_path,'k_cross_HDFSMode1.pt'))
+        model_file_name = 'k_cross_' + args.MODEL_NAME + '.pt'
+        torch.save(best_model, os.path.join(out_path, model_file_name))
 
     # view_images(train_loader)
 
