@@ -2,7 +2,7 @@ from lifelines.utils import concordance_index
 import numpy as np
 import torch
 import torch.nn as nn
-from pyramidpooling import SpatialPyramidPooling
+# from pyramidpooling import SpatialPyramidPooling
 
 
 def select_model(modelname):
@@ -90,7 +90,7 @@ class LiCNN(nn.Module):
         self.layer5 = nn.Sequential(
             nn.Linear(64*8*8, 500),
             nn.ReLU(),
-            nn.Dropout(0.3),
+            nn.Dropout(0.5),
             nn.Linear(500, 100),
             nn.ReLU(),
             nn.Dropout(0.3),
@@ -105,6 +105,20 @@ class LiCNN(nn.Module):
         x = x.view(x.size(0), -1)
         x = self.layer5(x)
         return x
+
+
+class ZhangCNN():
+    """
+    Implementation of network from Zhang, Liwen, et al. "A deep learning risk prediction model for 
+    overall survival in patients with gastric cancer: a multicenter study." Radiotherapy and Oncology 
+    150 (2020): 73-80.
+    """
+    def __init__(self):
+        super(ZhangCNN, self).__init__()
+    
+    def forward(self, x):
+        return x
+    
 
 #--------------------------- Evaluation Functions ---------------------------------------
 
