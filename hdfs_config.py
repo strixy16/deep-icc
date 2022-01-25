@@ -15,14 +15,15 @@ MODEL_NAME = "LiCNN"
 
 SEED = 16
 
+OPTIM = 'SGD'
 BATCH_SIZE = 32
 EPOCHS = 20
-LR = 0.0001
+LR = 0.0005
 
 # Validation
 K = 5
 
 # Debugging
 # If true, prevents output from saving
-DEBUG = False
+DEBUG = True
 
