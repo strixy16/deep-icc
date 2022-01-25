@@ -2,7 +2,7 @@
 
 # Data settings
 # Full path to data directory where images, labels, etc. are stored and output will be saved
-DATA_DIR = '/media/katy/Data/ICC/Data/'
+DATA_DIR = '/Data/'
 # Path from data_dir to label files
 TRAIN_LABEL_FILE = 'Labels/HDFS_train_tumors.csv'
 TEST_LABEL_FILE = 'Labels/HDFS_test_tumors.csv'
@@ -15,6 +15,7 @@ MODEL_NAME = "LiCNN"
 
 SEED = 16
 
+OPTIM = 'SGD'
 BATCH_SIZE = 32
 EPOCHS = 20
 LR = 0.0001
@@ -25,4 +26,3 @@ K = 5
 # Debugging
 # If true, prevents output from saving
 DEBUG = False
-
