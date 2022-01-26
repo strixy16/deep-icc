@@ -2,3 +2,4 @@
 .vscode
 .devcontainer
 .DS_Store
+.idea/
