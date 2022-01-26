@@ -67,26 +67,26 @@ class HDFSModel2(nn.Module):
         super(HDFSModel2, self).__init__()
 
         self.layer1 = nn.Sequential(
-            nn.Conv2d(1, 3, kernel_size=5),         # (N, 1, 221, 221) -> (N, 3, 217, 217)
-            nn.BatchNorm2d(3),                      # (N, 3, 217, 217) -> (N, 3, 217, 217)
+            nn.Conv2d(1, 8, kernel_size=7),         # (N, 1, 221, 221) -> (N, 8, 215, 215)
+            nn.BatchNorm2d(8),                      
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),  # (N, 3, 217, 217) -> (N, 3, 108, 108)
+            nn.MaxPool2d(kernel_size=2, stride=2),  # (N, 8, 215, 215) -> (N, 8, 107, 107)
         )
 
         self.layer2 = nn.Sequential(
-            nn.Conv2d(3, 5, kernel_size=5), # (N, 3, 108, 108) -> (N, 5, 104, 104)
-            nn.BatchNorm2d(5),
+            nn.Conv2d(8, 8, kernel_size=5, stride=2), # (N, 8, 107, 107) -> (N, 8, 52, 52)
+            nn.BatchNorm2d(8),
             nn.ReLU(),
-            nn.AdaptiveMaxPool2d(50), # (N, 5, 104, 104) -> (N, 5, 50, 50)
+            nn.AdaptiveMaxPool2d(16), # (N, 8, 52, 52) -> (N, 8, 16, 16)
             # nn.Dropout(0.5)
         )
 
         self.layer3 = nn.Sequential(
-            nn.Linear(5*50*50, 150), # (N, 12,500) -> (N, 150)
+            nn.Linear(8*16*16, 512), # (N, 2048) -> (N, 512)
             nn.ReLU(),
-            nn.Linear(150, 3), # (N, 150) -> #(N, 3)
+            nn.Linear(150, 32), # (N, 512) -> #(N, 32)
             nn.ReLU(),
-            nn.Linear(3, 1) # (N, 3) -> #(N, 1)
+            nn.Linear(3, 1) # (N, 32) -> #(N, 1)
         )
 
     def forward(self, x):
