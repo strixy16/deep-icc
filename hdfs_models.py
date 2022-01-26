@@ -84,9 +84,9 @@ class HDFSModel2(nn.Module):
         self.layer3 = nn.Sequential(
             nn.Linear(8*16*16, 512), # (N, 2048) -> (N, 512)
             nn.ReLU(),
-            nn.Linear(150, 32), # (N, 512) -> #(N, 32)
+            nn.Linear(512, 32), # (N, 512) -> #(N, 32)
             nn.ReLU(),
-            nn.Linear(3, 1) # (N, 32) -> #(N, 1)
+            nn.Linear(32, 1) # (N, 32) -> #(N, 1)
         )
 
     def forward(self, x):
