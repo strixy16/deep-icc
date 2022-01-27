@@ -11,14 +11,17 @@ IMG_LOC_PATH = 'Images/Labelled_Tumors/'
 # Dimension of CT image to load
 ORIG_IMG_DIM = 221
 
-MODEL_NAME = "LiCNN"
+MODEL_NAME = "HDFSModel2"
 
 SEED = 16
 
-OPTIM = 'SGD'
-BATCH_SIZE = 32
-EPOCHS = 20
-LR = 0.0001
+OPTIM = 'Adam'
+BATCH_SIZE = 16
+EPOCHS = 10
+LR = 0.0003
+
+# Regularization
+WEIGHT_DECAY = 0.05
 
 # Validation
 K = 5
@@ -26,3 +29,4 @@ K = 5
 # Debugging
 # If true, prevents output from saving
 DEBUG = False
+

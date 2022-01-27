@@ -71,6 +71,7 @@ class HDFSModel2(nn.Module):
             nn.BatchNorm2d(8),                      
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2),  # (N, 8, 215, 215) -> (N, 8, 107, 107)
+            # nn.Dropout(0.3)
         )
 
         self.layer2 = nn.Sequential(
@@ -78,12 +79,13 @@ class HDFSModel2(nn.Module):
             nn.BatchNorm2d(8),
             nn.ReLU(),
             nn.AdaptiveMaxPool2d(16), # (N, 8, 52, 52) -> (N, 8, 16, 16)
-            # nn.Dropout(0.5)
+            # nn.Dropout(0.3)
         )
 
         self.layer3 = nn.Sequential(
             nn.Linear(8*16*16, 512), # (N, 2048) -> (N, 512)
             nn.ReLU(),
+            # nn.Dropout(0.5),
             nn.Linear(512, 32), # (N, 512) -> #(N, 32)
             nn.ReLU(),
             nn.Linear(32, 1) # (N, 32) -> #(N, 1)
@@ -184,14 +186,15 @@ def c_index(risk_pred, y, e):
 class NegativeLogLikelihood(nn.Module):
     """Negative log likelihood loss function from Katzman et al. (2018) DeepSurv model (equation 4)"""
 
-    def __init__(self, device):
+    def __init__(self, device, reg_weight_decay=0):
         """Initialize NegativeLogLikelihood class
 
         Args:
             device: string, what kind of tensor to use for loss calculation
+            reg_weight_decay: weight decay value for Regularization
         """
         super(NegativeLogLikelihood, self).__init__()
-        self.reg = Regularization(order=2, weight_decay=0)
+        self.reg = Regularization(order=2, weight_decay=reg_weight_decay)
         self.device = device
 
     def forward(self, risk_pred, y, e, model):
