@@ -156,7 +156,7 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None, seed=16):
             raise Exception('Invalid optimizer. Must be SGD or Adam.')
 
         # Set loss function
-        criterion = NegativeLogLikelihood(device, args.WEIGHT_DECAY)
+        criterion = NegativeLogLikelihood(device, args.LOSS_WEIGHT_DECAY)
 
         # Initialize dictionary to save evaluation metrics and trained model for each fold
         history = {'train_loss': [], 'valid_loss': [], 'train_cind': [], 'valid_cind': [], 'model': None}
