@@ -149,9 +149,9 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None, seed=16):
         
         # Set optimizer
         if args.OPTIM == 'SGD':
-            optimizer = optim.SGD(model.parameters(), lr=args.LR)
+            optimizer = optim.SGD(model.parameters(), lr=args.LR, weight_decay=args.OPTIM_WEIGHT_DECAY)
         elif args.OPTIM == 'Adam':
-            optimizer = optim.Adam(model.parameters(), lr=args.LR)
+            optimizer = optim.Adam(model.parameters(), lr=args.LR, weight_decay=args.OPTIM_WEIGHT_DECAY)
         else:
             raise Exception('Invalid optimizer. Must be SGD or Adam.')
 

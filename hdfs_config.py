@@ -17,11 +17,14 @@ SEED = 16
 
 OPTIM = 'Adam'
 BATCH_SIZE = 16
-EPOCHS = 10
+EPOCHS = 20
 LR = 0.0003
 
 # Regularization
-WEIGHT_DECAY = 0.05
+# L1 regularization???
+LOSS_WEIGHT_DECAY = 0.0001
+# L2 regularization
+OPTIM_WEIGHT_DECAY = 0.0001
 
 # Validation
 K = 5
