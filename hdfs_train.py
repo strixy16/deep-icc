@@ -1,7 +1,8 @@
+import contextlib
 from datetime import datetime
 from lifelines.utils import concordance_index
 import matplotlib.pyplot as plt
-import contextlib
+# from pycox.evaluation import EvalSurv
 from sklearn.model_selection import GroupKFold, KFold
 import torch.optim as optim
 from torchinfo import summary
@@ -14,7 +15,7 @@ from hdfs_models import *
 
 def view_images(data_loader):
     # Function to view images that are loaded in in the correct way
-    for X, _, _ in data_loader:
+    for X, _, _, _ in data_loader:
 
         # im = plt.imshow(X[0][0], cmap='gray', vmin=-100, vmax=300)
         # plt.savefig("../Data/Output/adjusted_img.png")
@@ -52,7 +53,7 @@ def train_epoch(model, device, dataloader, criterion, optimizer):
     # view_images(dataloader)
 
     # Iterate over each batch in the data
-    for X, t, e in dataloader:
+    for X, t, e, _ in dataloader:
         # X = CT image
         # t = time to event
         # e = event indicator
@@ -78,7 +79,7 @@ def train_epoch(model, device, dataloader, criterion, optimizer):
     return coxLoss, conInd
 
 
-def valid_epoch(model, device, dataloader, criterion):
+def valid_epoch(model, device, dataloader, criterion, test=False):
     # Function to run validation on a deep learning model
     # Set model to evaluation so weights are not updated
     model.eval()
@@ -87,8 +88,12 @@ def valid_epoch(model, device, dataloader, criterion):
     # Initialize c-index counter
     conInd = 0.0
 
+    # If using for testing, want to save predictions
+    if test:
+        df_all_pred = pd.DataFrame(columns=['Slice_File_Name', 'Prediction', 'Time', 'Event'])
+
     # Iterate over each batch in the data
-    for X, t, e in dataloader:
+    for X, t, e, fname in dataloader:
         # X = CT image
         # t = time to event
         # e = event indicator
@@ -109,7 +114,19 @@ def valid_epoch(model, device, dataloader, criterion):
         val_ci = c_index(risk_pred, t, e)
         conInd += val_ci * t.size(0)
 
-    return coxLoss, conInd
+        if test:
+            df_batch = pd.DataFrame(list(fname), columns=['Slice_File_Name'])
+            df_batch['Prediction'] = risk_pred.cpu().detach().numpy()
+            df_batch['Time'] = t.cpu().detach().numpy()
+            df_batch['Event'] = e.cpu().detach().numpy()
+
+            df_all_pred = df_all_pred.append(df_batch)
+
+    if test:
+        df_all_pred.sort_values(by=['Slice_File_Name'], inplace=True)
+        return coxLoss, conInd, df_all_pred
+    else:    
+        return coxLoss, conInd
 
 
 def kfold_train(data_info_path, data_img_path, out_dir_path, k=None, seed=16):
@@ -296,7 +313,7 @@ def test_model(model, data_info_path, data_img_path, device):
     # Initialize dictionary to save evaluation metrics and trained model for each fold
     # history = {'test_loss': None, 'test_ci': None}
 
-    test_loss, test_cind = valid_epoch(model, device, test_loader, criterion)
+    test_loss, test_cind, test_predictions = valid_epoch(model, device, test_loader, criterion, test=True)
 
     # Get average metrics for test epoch
     test_loss = test_loss / len(test_loader.sampler)
