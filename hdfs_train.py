@@ -324,7 +324,7 @@ def test_model(model, data_info_path, data_img_path, device):
 
     print("Testing loss: {:.3f} \t Testing c-index: {:.2f}".format(test_loss, test_cind))
 
-    return test_loss, test_cind
+    return test_loss, test_cind, test_predictions
 
 
 if __name__ == '__main__':
@@ -362,7 +362,10 @@ if __name__ == '__main__':
                                                                              k=args.K, seed=args.SEED)
     torch.cuda.empty_cache()
 
-    test_loss, test_cind = test_model(best_model, test_info_path, test_img_path, device)
+    # use if want to skip model training and just test existing model
+    # best_model = torch.load('/Data/Output/HDFSModel2/2022_01_31_2105/k_cross_HDFSModel2.pt')
+
+    test_loss, test_cind, test_predictions = test_model(best_model, test_info_path, test_img_path, device)
 
 
     # Save model results
@@ -388,6 +391,9 @@ if __name__ == '__main__':
         # Save best model
         model_file_name = 'k_cross_' + args.MODEL_NAME + '.pt'
         torch.save(best_model, os.path.join(out_path, model_file_name))
+
+        # Saving predictions made for test data
+        test_predictions.to_csv(os.path.join(out_path, 'test_predictions.csv'), index=False)
 
     # view_images(train_loader)
 

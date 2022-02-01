@@ -53,7 +53,7 @@ class HDFSTumorDataset(Dataset):
         e_tensor = torch.Tensor([self.event_label[idx]])
         t_tensor = torch.Tensor([self.time_label[idx]])
 
-        fname = self.img_fname.iloc(idx)
+        fname = self.img_fname.iloc[idx]
 
         return X_tensor, t_tensor, e_tensor, fname
 
