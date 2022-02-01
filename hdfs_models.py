@@ -1,8 +1,16 @@
 from lifelines.utils import concordance_index
 import numpy as np
+import pandas as pd
+import rpy2.robjects as robjects
+import rpy2.robjects.packages as rpackages
+from rpy2.robjects import pandas2ri
 import torch
 import torch.nn as nn
 # from pyramidpooling import SpatialPyramidPooling
+
+utils = rpackages.importr('utils')
+utils.chooseCRANmirror(ind=1)
+utils.install_packages("survAUC")
 
 
 def select_model(modelname):
@@ -10,6 +18,8 @@ def select_model(modelname):
         return HDFSModel1()
     elif modelname == "HDFSModel2":
         return HDFSModel2()
+    elif modelname == 'HDFSModel3':
+        return HDFSModel3()
     elif modelname == "LiCNN":
         return LiCNN()
     else:
@@ -71,7 +81,7 @@ class HDFSModel2(nn.Module):
             nn.BatchNorm2d(8),                      
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2),  # (N, 8, 215, 215) -> (N, 8, 107, 107)
-            # nn.Dropout(0.3)
+            # nn.Dropout(0.1)
         )
 
         self.layer2 = nn.Sequential(
@@ -79,13 +89,13 @@ class HDFSModel2(nn.Module):
             nn.BatchNorm2d(8),
             nn.ReLU(),
             nn.AdaptiveMaxPool2d(16), # (N, 8, 52, 52) -> (N, 8, 16, 16)
-            # nn.Dropout(0.3)
+            nn.Dropout(0.7)
         )
 
         self.layer3 = nn.Sequential(
             nn.Linear(8*16*16, 512), # (N, 2048) -> (N, 512)
             nn.ReLU(),
-            # nn.Dropout(0.5),
+            nn.Dropout(0.5),
             nn.Linear(512, 32), # (N, 512) -> #(N, 32)
             nn.ReLU(),
             nn.Linear(32, 1) # (N, 32) -> #(N, 1)
@@ -97,6 +107,52 @@ class HDFSModel2(nn.Module):
         x = x.view(x.size(0), -1)
         x = self.layer3(x)
         return x
+
+
+class HDFSModel3(nn.Module):
+    def __init__(self):
+        super(HDFSModel3, self).__init__()
+
+        self.layer1 = nn.Sequential(
+            nn.Conv2d(1, 8, kernel_size=7),         # (N, 1, 221, 221) -> (N, 8, 215, 215)
+            nn.BatchNorm2d(8),                      
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2),  # (N, 8, 215, 215) -> (N, 8, 107, 107)
+            # nn.Dropout(0.1)
+        )
+
+        self.layer2 = nn.Sequential(
+            nn.Conv2d(8, 16, kernel_size=5, stride=2), # (N, 8, 107, 107) -> (N, 16, 52, 52)
+            nn.BatchNorm2d(16),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2),     # (N, 16, 52, 52) -> (N, 16, 26, 26)
+            # nn.Dropout(0.1)
+        )
+
+        self.layer3 = nn.Sequential(
+            nn.Conv2d(16, 16, kernel_size=5, stride=1),  #(N, 16, 26, 26) -> (N, 16, 22, 22)
+            nn.BatchNorm2d(16),
+            nn.ReLU(),
+            nn.AdaptiveMaxPool2d(8), # (N, 16, 22, 22) -> (N, 16, 8, 8)
+        )
+                
+        self.layer4 = nn.Sequential(
+            nn.Linear(8*8*16, 512), # (N, 1024) -> (N, 512)
+            nn.ReLU(),
+            # nn.Dropout(0.5),
+            nn.Linear(512, 32), # (N, 512) -> #(N, 32)
+            nn.ReLU(),
+            nn.Linear(32, 1) # (N, 32) -> #(N, 1)
+        )
+
+    def forward(self, x):
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = x.view(x.size(0), -1)
+        x = self.layer4(x)
+        return x
+
 
 class LiCNN(nn.Module):
     """
@@ -181,6 +237,23 @@ def c_index(risk_pred, y, e):
         e = e.detach().cpu().numpy()
 
     return concordance_index(y, risk_pred, e)
+
+
+def r_c_index(risk_pred, y, e):
+    # Use Gonen and Hiller's c-index via the survAUC library in R
+    survAUC = rpackages.importr('survAUC')
+
+    # Get data into right format
+    np_risk_pred = risk_pred.detach().cpu().numpy()
+    pd_risk_pred = pd.DataFrame(np_risk_pred)
+    r_risk_pred = pandas2ri.py2rpy(pd_risk_pred)
+
+    # this doesn't work yet, need to get the list to numeric type
+    # in R, this is accomplished with as.numeric and unlist()
+    # survAUC.GHCI(r_risk_pred)
+
+    return None
+
 
 
 class NegativeLogLikelihood(nn.Module):
