@@ -310,17 +310,11 @@ def test_model(model, data_info_path, data_img_path, device):
 
     criterion = NegativeLogLikelihood(device)
 
-    # Initialize dictionary to save evaluation metrics and trained model for each fold
-    # history = {'test_loss': None, 'test_ci': None}
-
     test_loss, test_cind, test_predictions = valid_epoch(model, device, test_loader, criterion, test=True)
 
     # Get average metrics for test epoch
     test_loss = test_loss / len(test_loader.sampler)
     test_cind = test_cind / len(test_loader.sampler)
-
-    # history['test_loss'] = test_loss
-    # history['test_cind'] = test_cind
 
     print("Testing loss: {:.3f} \t Testing c-index: {:.2f}".format(test_loss, test_cind))
 
@@ -338,7 +332,6 @@ if __name__ == '__main__':
     torch.cuda.manual_seed(args.SEED)
     np.random.seed(args.SEED)
 
-    
     # Output setup
     out_dir = 'Output/' + args.MODEL_NAME + '/' + datetime.now().strftime("%Y_%m_%d_%H%M")
     out_path = os.path.join(args.DATA_DIR, out_dir)
@@ -367,16 +360,9 @@ if __name__ == '__main__':
 
     test_loss, test_cind, test_predictions = test_model(best_model, test_info_path, test_img_path, device)
 
-
     # Save model results
     model_stats = summary(best_model, input_size=(args.BATCH_SIZE, 1, args.ORIG_IMG_DIM, args.ORIG_IMG_DIM))
     summary_str = str(model_stats)
-
-    # results = [train_loss, valid_loss, test_loss, train_cind, valid_cind, test_cind]
-    # results = np.reshape(results, [1, 6])
-    # results_df = pd.DataFrame(results)
-    # results_df.columns = ['Train_Loss', 'Valid_Loss', 'Test_Loss', 'Train_C_index', 'Valid_C_index', 'Test_C_index']
-    # str_results = results_df.to_string(index=False)
 
     if not args.DEBUG:
         # Add testing results to results.txt file made in kfold_train
@@ -395,6 +381,4 @@ if __name__ == '__main__':
         # Saving predictions made for test data
         test_predictions.to_csv(os.path.join(out_path, 'test_predictions.csv'), index=False)
 
-    # view_images(train_loader)
-
-    # print('breakpoint goes here')
+print("Completed model training/testing")
