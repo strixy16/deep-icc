@@ -48,6 +48,8 @@ def train_epoch(model, device, dataloader, criterion, optimizer):
     coxLoss = 0.0
     # Initialize c-index counter
     conInd = 0.0
+    # Initialize GHCI counter
+    ghcInd = 0.0
 
     # use to confirm dataloader is passed correctly
     # view_images(dataloader)
@@ -68,8 +70,13 @@ def train_epoch(model, device, dataloader, criterion, optimizer):
         train_loss = criterion(-risk_pred, t, e, model)
         coxLoss += train_loss.item() * t.size(0)
 
-        train_ci = c_index(risk_pred, t, e)
-        conInd += train_ci.item() * t.size(0)
+        if args.USE_GH:
+            train_ci = gh_c_index(risk_pred)
+            conInd += train_ci * t.size(0)
+
+        else:
+            train_ci = c_index(risk_pred, t, e)
+            conInd += train_ci.item() * t.size(0)
 
         # Updating parameters based on forward pass
         optimizer.zero_grad()
@@ -104,15 +111,16 @@ def valid_epoch(model, device, dataloader, criterion, test=False):
         # Pass data forward through trained model
         risk_pred = model(X)
 
-        if torch.any(torch.isnan(risk_pred)):
-            print("NaNs predicted by model.")
-
         # Calculate loss and evaluation metrics
         val_loss = criterion(-risk_pred, t, e, model)
         coxLoss += val_loss.item() * t.size(0)
 
-        val_ci = c_index(risk_pred, t, e)
-        conInd += val_ci * t.size(0)
+        if args.USE_GH:
+            val_ci = gh_c_index(risk_pred)
+            conInd += val_ci * t.size(0)
+        else:
+            val_ci = c_index(risk_pred, t, e)
+            conInd += val_ci * t.size(0)
 
         if test:
             df_batch = pd.DataFrame(list(fname), columns=['Slice_File_Name'])

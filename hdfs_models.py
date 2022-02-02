@@ -239,20 +239,29 @@ def c_index(risk_pred, y, e):
     return concordance_index(y, risk_pred, e)
 
 
-def r_c_index(risk_pred, y, e):
+def gh_c_index(risk_pred):
+    # check for NaNs
+    if not isinstance(risk_pred, np.ndarray):
+        risk_pred = risk_pred.detach().cpu().numpy()
+    for a in risk_pred:
+        if np.isnan(a).any():
+            raise ValueError("NaNs detected in inputs, please correct or drop.")
+
     # Use Gonen and Hiller's c-index via the survAUC library in R
     survAUC = rpackages.importr('survAUC')
 
     # Get data into right format
-    np_risk_pred = risk_pred.detach().cpu().numpy()
-    pd_risk_pred = pd.DataFrame(np_risk_pred)
-    r_risk_pred = pandas2ri.py2rpy(pd_risk_pred)
+    R_risk_pred = robjects.vectors.FloatVector(risk_pred)
 
     # this doesn't work yet, need to get the list to numeric type
     # in R, this is accomplished with as.numeric and unlist()
-    # survAUC.GHCI(r_risk_pred)
+    R_cind = survAUC.GHCI(R_risk_pred)
 
-    return None
+    # Convert back to Python list with single value
+    cind = list(R_cind)
+
+    # Return the only value in the cind list
+    return cind[0]
 
 
 

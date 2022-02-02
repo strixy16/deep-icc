@@ -13,18 +13,21 @@ ORIG_IMG_DIM = 221
 
 MODEL_NAME = "HDFSModel2"
 
+# C-index to use - if true, uses GHCI 
+USE_GH = True
+
 SEED = 16
 
 OPTIM = 'Adam'
 BATCH_SIZE = 16
-EPOCHS = 20
+EPOCHS = 15
 LR = 0.0003
 
 # Regularization
 # L1 regularization???
-LOSS_WEIGHT_DECAY = 0.0001
+LOSS_WEIGHT_DECAY = 0.025
 # L2 regularization
-OPTIM_WEIGHT_DECAY = 0.0001
+OPTIM_WEIGHT_DECAY = 5e-05
 
 # Validation
 K = 5
