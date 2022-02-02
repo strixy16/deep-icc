@@ -1,6 +1,7 @@
 from lifelines.utils import concordance_index
 import numpy as np
 import pandas as pd
+from sksurv.metrics import integrated_brier_score
 import rpy2.robjects as robjects
 import rpy2.robjects.packages as rpackages
 from rpy2.robjects import pandas2ri
@@ -221,7 +222,7 @@ def c_index(risk_pred, y, e):
     """ Calculate c-index
 
     Args:
-        risk_pred: np.ndarray or torch.Tensor, model prediction
+        risk_pred: np.ndarray or torch.Tensor, model prediction (risk scores)
         y: np.ndarray or torch.Tensor, times of event e
         e: np.ndarray or torch.Tensor, event indicator
 
@@ -240,6 +241,17 @@ def c_index(risk_pred, y, e):
 
 
 def gh_c_index(risk_pred):
+    """
+    Calculate Gonen and Hiller's c-index using function from R (using rpy2) 
+
+    Args:
+        risk_pred: np.ndarray or torch.Tensor, risk score predictions from model
+
+    Source: Gonen, M. and G. Heller (2005). 
+    Concordance probability and discriminatory power in proportional hazards regression.
+    Biometrika 92, 965–970.
+    """
+
     # check for NaNs
     if not isinstance(risk_pred, np.ndarray):
         risk_pred = risk_pred.detach().cpu().numpy()
@@ -263,6 +275,34 @@ def gh_c_index(risk_pred):
     # Return the only value in the cind list
     return cind[0]
 
+
+def get_IBS(train_times, train_events, test_times, test_events, test_risk_pred, times):
+    """
+    Calculate the Integrated Brier Score
+
+    Args:
+        train_times: np.ndarray or torch.Tensor, survival times for training data
+        test_times: np.ndarray or torch.Tensor, survival times for testing data
+    """
+
+    if not isinstance(train_times, np.ndarray):
+        train_times = train_times.detach().cpu().numpy()
+    if not isinstance(train_events, np.ndarray):
+        train_events = train_events.detach().cpu().numpy()
+    if not isinstance(test_times, np.ndarray):
+        test_times = test_times.detach().cpu().numpy()
+    if not isinstance(test_events, np.ndarray):
+        test_events = test_events.detach().cpu().numpy()
+    if not isinstance(test_risk_pred, np.ndarray):
+        test_risk_pred = test_risk_pred.detach().cpu().numpy()
+    if not isinstance(times, np.ndarray):
+        times = times.detach().cpu().numpy()
+
+    train_survival = np.array(train_events, train_times).T
+
+
+
+    return None
 
 
 class NegativeLogLikelihood(nn.Module):
