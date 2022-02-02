@@ -1,6 +1,12 @@
 lifelines
 matplotlib
 numpy
+os
 pandas
+random
+rpy2
 scikit-learn
+scikit-survival
+torch 
 torchinfo
+torchvision
