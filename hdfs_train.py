@@ -86,7 +86,7 @@ def train_epoch(model, device, dataloader, criterion, optimizer):
     return coxLoss, conInd
 
 
-def valid_epoch(model, device, dataloader, criterion, test=False):
+def valid_epoch(model, device, dataloader, criterion):
     # Function to run validation on a deep learning model
     # Set model to evaluation so weights are not updated
     model.eval()
@@ -94,10 +94,6 @@ def valid_epoch(model, device, dataloader, criterion, test=False):
     coxLoss = 0.0
     # Initialize c-index counter
     conInd = 0.0
-
-    # If using for testing, want to save predictions
-    if test:
-        df_all_pred = pd.DataFrame(columns=['Slice_File_Name', 'Prediction', 'Time', 'Event'])
 
     # Iterate over each batch in the data
     for X, t, e, fname in dataloader:
@@ -121,20 +117,8 @@ def valid_epoch(model, device, dataloader, criterion, test=False):
         else:
             val_ci = c_index(risk_pred, t, e)
             conInd += val_ci * t.size(0)
-
-        if test:
-            df_batch = pd.DataFrame(list(fname), columns=['Slice_File_Name'])
-            df_batch['Prediction'] = risk_pred.cpu().detach().numpy()
-            df_batch['Time'] = t.cpu().detach().numpy()
-            df_batch['Event'] = e.cpu().detach().numpy()
-
-            df_all_pred = pd.concat([df_all_pred, df_batch], ignore_index=True)
-
-    if test:
-        df_all_pred.sort_values(by=['Slice_File_Name'], inplace=True)
-        return coxLoss, conInd, df_all_pred
-    else:    
-        return coxLoss, conInd
+    
+    return coxLoss, conInd
 
 
 def kfold_train(data_info_path, data_img_path, out_dir_path, k=None, seed=16):
@@ -311,18 +295,69 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None, seed=16):
 
 def test_model(model, data_info_path, data_img_path, device):
     test_dataset = HDFSTumorDataset(data_info_path, data_img_path, args.ORIG_IMG_DIM)
-    test_loader = DataLoader(test_dataset, batch_size=args.BATCH_SIZE, shuffle=True, drop_last=True)
+    test_loader = DataLoader(test_dataset, batch_size=args.BATCH_SIZE, shuffle=True, drop_last=False)
 
     model.to(device)
     model.eval()
 
     criterion = NegativeLogLikelihood(device)
 
-    test_loss, test_cind, test_predictions = valid_epoch(model, device, test_loader, criterion, test=True)
+    # test_loss, test_cind, test_predictions = valid_epoch(model, device, test_loader, criterion, test=True)
+
+    # Function to run validation on a deep learning model
+    # Set model to evaluation so weights are not updated
+    model.eval()
+    # Initialize loss counter
+    coxLoss = 0.0
+    # Initialize c-index counter
+    conInd = 0.0
+
+    # If using for testing, want to save predictions
+    df_all_pred = pd.DataFrame(columns=['Slice_File_Name', 'Prediction', 'Time', 'Event'])
+
+    # Iterate over each batch in the data
+    for X, t, e, fname in test_loader:
+        # X = CT image
+        # t = time to event
+        # e = event indicator
+
+        # Convert all data to floats and store on CPU or GPU (if available)
+        X, t, e = X.float().to(device), t.float().to(device), e.float().to(device)
+
+        # Pass data forward through trained model
+        risk_pred = model(X)
+
+        # Calculate loss and evaluation metrics
+        test_loss = criterion(-risk_pred, t, e, model)
+        coxLoss += test_loss.item() * t.size(0)
+
+        # Moved c-index calculation to end when all predictions are available
+        
+        df_batch = pd.DataFrame(list(fname), columns=['Slice_File_Name'])
+        df_batch['Prediction'] = risk_pred.cpu().detach().numpy()
+        df_batch['Time'] = t.cpu().detach().numpy()
+        df_batch['Event'] = e.cpu().detach().numpy()
+
+        df_all_pred = pd.concat([df_all_pred, df_batch], ignore_index=True)
+
+    
+    df_all_pred.sort_values(by=['Slice_File_Name'], inplace=True)
+
+    all_pred = np.array(df_all_pred['Prediction'])
+    all_time = np.array(df_all_pred['Time'])
+    all_event = np.array(df_all_pred['Event'])
+
+    if args.USE_GH:
+        test_cind = gh_c_index(all_pred)
+        # conInd += test_cind * t.size(0)
+    else:
+        test_cind = c_index(all_pred, all_time, all_event)
+        # conInd += test_cind * t.size(0)
+
 
     # Get average metrics for test epoch
-    test_loss = test_loss / len(test_loader.sampler)
-    test_cind = test_cind / len(test_loader.sampler)
+    test_loss = coxLoss / len(test_loader.sampler)
+    test_cind = conInd / len(test_loader.sampler)
 
     print("Testing loss: {:.3f} \t Testing c-index: {:.2f}".format(test_loss, test_cind))
 
