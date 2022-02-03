@@ -149,7 +149,7 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None, seed=16):
         # Setup dataloader for training portion of data
         train_loader = DataLoader(hdfs_dataset, batch_size=args.BATCH_SIZE, sampler=train_sampler)
         # Setup dataloader for validation portion of data
-        valid_loader = DataLoader(hdfs_dataset, batch_size=args.BATCH_SIZE, sampler=valid_sampler, drop_last=True)
+        valid_loader = DataLoader(hdfs_dataset, batch_size=args.BATCH_SIZE, sampler=valid_sampler, drop_last=False)
 
         # Create model to train for this fold
         model = select_model(args.MODEL_NAME)
