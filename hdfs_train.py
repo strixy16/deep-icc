@@ -329,19 +329,12 @@ def test_model(model, data_info_path, data_img_path, device):
     return test_loss, test_cind, test_predictions
 
 
-if __name__ == '__main__':
-    # Preliminaries
-    torch.cuda.empty_cache()
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-    # Random setup
-    random.seed(args.SEED)
-    torch.manual_seed(args.SEED)
-    torch.cuda.manual_seed(args.SEED)
-    np.random.seed(args.SEED)
-
+def train_main():
+    """
+    Main function to run if training a model from scratch
+    """
     # Output setup
-    out_dir = 'Output/' + args.MODEL_NAME + '/' + datetime.now().strftime("%Y_%m_%d_%H%M")
+    out_dir = 'Output/' + args.MODEL_NAME + '/' + datetime.now().strftime("%Y_%m_%d_%H%M") + "_train"
     out_path = os.path.join(args.DATA_DIR, out_dir)
 
     if not args.DEBUG:
@@ -362,9 +355,6 @@ if __name__ == '__main__':
     best_model, train_loss, train_cind, valid_loss, valid_cind = kfold_train(train_info_path, train_img_path, out_path,
                                                                              k=args.K, seed=args.SEED)
     torch.cuda.empty_cache()
-
-    # use if want to skip model training and just test existing model
-    # best_model = torch.load('/Data/Output/HDFSModel2/2022_01_31_2105/k_cross_HDFSModel2.pt')
 
     test_loss, test_cind, test_predictions = test_model(best_model, test_info_path, test_img_path, device)
 
@@ -389,4 +379,108 @@ if __name__ == '__main__':
         # Saving predictions made for test data
         test_predictions.to_csv(os.path.join(out_path, 'test_predictions.csv'), index=False)
 
-print("Completed model training/testing")
+    print("Completed model training/testing")
+
+
+def load_main():
+    """
+    Main function if loading a pre-trained model to just run testing on
+    """
+    # Output setup
+    out_dir = 'Output/' + args.MODEL_NAME + '/' + datetime.now().strftime("%Y_%m_%d_%H%M") + "_load"
+    out_path = os.path.join(args.DATA_DIR, out_dir)
+
+    if not args.DEBUG:
+        os.makedirs(out_path)
+
+        # Save out parameters used for the run
+        save_param_fname = os.path.join(out_path, 'parameters.txt')
+        with open(save_param_fname, 'w') as f:
+            with contextlib.redirect_stdout(f):
+                help(args)
+
+    test_info_path = os.path.join(args.DATA_DIR, args.TEST_LABEL_FILE)
+    test_img_path = os.path.join(args.DATA_DIR, args.IMG_LOC_PATH, str(args.ORIG_IMG_DIM), 'test/')
+
+    load_model = torch.load(args.LOAD_MODEL_PATH)
+
+    test_loss, test_cind, test_predictions = test_model(load_model, test_info_path, test_img_path, device)
+
+    if not args.DEBUG:
+        # Add testing results to results.txt file made in kfold_train
+        with open(os.path.join(out_path, 'k_fold_results.txt'), 'a') as kfold_file:
+            kfold_file.write("Testing Results of Loaded Model: \n")
+            kfold_file.write("Testing Loss: {:.3f} \t Testing C-Index: {:.2f}\n\n".format(test_loss, test_cind))
+
+        # Saving predictions made for test data
+        test_predictions.to_csv(os.path.join(out_path, 'test_predictions.csv'), index=False)
+
+    print("Completed loaded model testing")
+
+
+if __name__ == '__main__':
+    # Preliminaries
+    torch.cuda.empty_cache()
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    # Random setup
+    random.seed(args.SEED)
+    torch.manual_seed(args.SEED)
+    torch.cuda.manual_seed(args.SEED)
+    np.random.seed(args.SEED)
+
+    if args.TRAIN_MODE:
+        train_main()
+    elif args.LOAD_MODE:
+        load_main()
+    else:
+        raise Exception("No mode selected. Choose TRAIN or LOAD MODE in hdfs_config")
+
+    # Output setup
+    # out_dir = 'Output/' + args.MODEL_NAME + '/' + datetime.now().strftime("%Y_%m_%d_%H%M")
+    # out_path = os.path.join(args.DATA_DIR, out_dir)
+
+    # if not args.DEBUG:
+    #     os.makedirs(out_path)
+
+    #     # Save out parameters used for the run
+    #     save_param_fname = os.path.join(out_path, 'parameters.txt')
+    #     with open(save_param_fname, 'w') as f:
+    #         with contextlib.redirect_stdout(f):
+    #             help(args)
+
+    # train_info_path = os.path.join(args.DATA_DIR, args.TRAIN_LABEL_FILE)
+    # test_info_path = os.path.join(args.DATA_DIR, args.TEST_LABEL_FILE)
+
+    # train_img_path = os.path.join(args.DATA_DIR, args.IMG_LOC_PATH, str(args.ORIG_IMG_DIM), 'train/')
+    # test_img_path = os.path.join(args.DATA_DIR, args.IMG_LOC_PATH, str(args.ORIG_IMG_DIM), 'test/')
+
+    # # best_model, train_loss, train_cind, valid_loss, valid_cind = kfold_train(train_info_path, train_img_path, out_path,
+    # #                                                                          k=args.K, seed=args.SEED)
+    # # torch.cuda.empty_cache()
+
+    # # use if want to skip model training and just test existing model
+    # best_model = torch.load('/Data/Output/HDFSModel2/2022_02_03_0134/k_cross_HDFSModel2.pt')
+
+    # test_loss, test_cind, test_predictions = test_model(best_model, test_info_path, test_img_path, device)
+
+    # # Save model results
+    # model_stats = summary(best_model, input_size=(args.BATCH_SIZE, 1, args.ORIG_IMG_DIM, args.ORIG_IMG_DIM))
+    # summary_str = str(model_stats)
+
+    # if not args.DEBUG:
+    #     # Add testing results to results.txt file made in kfold_train
+    #     with open(os.path.join(out_path, 'k_fold_results.txt'), 'a') as kfold_file:
+    #         kfold_file.write("Testing Results of Best Fold: \n")
+    #         kfold_file.write("Testing Loss: {:.3f} \t Testing C-Index: {:.2f}\n\n".format(test_loss, test_cind))
+
+    #     # Save summary of model
+    #     # with open(os.path.join(out_path, 'model_summary.txt'), 'w') as out_file:
+    #     #     out_file.write(summary_str)
+
+    #     # Save best model
+    #     # model_file_name = 'k_cross_' + args.MODEL_NAME + '.pt'
+    #     # torch.save(best_model, os.path.join(out_path, model_file_name))
+
+    #     # Saving predictions made for test data
+    #     test_predictions.to_csv(os.path.join(out_path, 'test_predictions.csv'), index=False)

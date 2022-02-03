@@ -20,19 +20,26 @@ SEED = 16
 
 OPTIM = 'Adam'
 BATCH_SIZE = 16
-EPOCHS = 15
+EPOCHS = 30
 LR = 0.0003
 
 # Regularization
 # L1 regularization???
-LOSS_WEIGHT_DECAY = 0.025
+LOSS_WEIGHT_DECAY = 0.005
 # L2 regularization
-OPTIM_WEIGHT_DECAY = 5e-05
+OPTIM_WEIGHT_DECAY = 0.0
 
 # Validation
 K = 5
 
+# Mode to run HDFS_train in
+TRAIN_MODE = False 
+LOAD_MODE = True
+
+# If just testing with existing model, put path to the model you wish to load here
+LOAD_MODEL_PATH = '/Data/Output/HDFSModel2/2022_02_03_0134/k_cross_HDFSModel2.pt'
+
+
 # Debugging
 # If true, prevents output from saving
-DEBUG = False
-
+DEBUG = True
