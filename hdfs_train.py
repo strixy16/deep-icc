@@ -128,7 +128,7 @@ def valid_epoch(model, device, dataloader, criterion, test=False):
             df_batch['Time'] = t.cpu().detach().numpy()
             df_batch['Event'] = e.cpu().detach().numpy()
 
-            df_all_pred = df_all_pred.append(df_batch)
+            df_all_pred = pd.concat([df_all_pred, df_batch], ignore_index=True)
 
     if test:
         df_all_pred.sort_values(by=['Slice_File_Name'], inplace=True)
