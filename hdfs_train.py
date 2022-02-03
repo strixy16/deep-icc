@@ -339,29 +339,26 @@ def test_model(model, data_info_path, data_img_path, device):
         df_batch['Event'] = e.cpu().detach().numpy()
 
         df_all_pred = pd.concat([df_all_pred, df_batch], ignore_index=True)
-
+    # end batch loop
     
     df_all_pred.sort_values(by=['Slice_File_Name'], inplace=True)
 
+    # Calculating c-index for entire testing set, not just per batch 
     all_pred = np.array(df_all_pred['Prediction'])
     all_time = np.array(df_all_pred['Time'])
     all_event = np.array(df_all_pred['Event'])
 
     if args.USE_GH:
         test_cind = gh_c_index(all_pred)
-        # conInd += test_cind * t.size(0)
     else:
         test_cind = c_index(all_pred, all_time, all_event)
-        # conInd += test_cind * t.size(0)
-
 
     # Get average metrics for test epoch
     test_loss = coxLoss / len(test_loader.sampler)
-    test_cind = conInd / len(test_loader.sampler)
 
     print("Testing loss: {:.3f} \t Testing c-index: {:.2f}".format(test_loss, test_cind))
 
-    return test_loss, test_cind, test_predictions
+    return test_loss, test_cind, df_all_pred
 
 
 def train_main():
