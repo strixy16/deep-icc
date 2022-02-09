@@ -95,6 +95,9 @@ def valid_epoch(model, device, dataloader, criterion):
     # Initialize c-index counter
     conInd = 0.0
 
+    # Dataframe to save predictions to calculate overall instead of average c-index
+    df_all_pred = pd.DataFrame(columns=['Slice_File_Name', 'Prediction', 'Time', 'Event'])
+
     # Iterate over each batch in the data
     for X, t, e, fname in dataloader:
         # X = CT image
@@ -117,8 +120,28 @@ def valid_epoch(model, device, dataloader, criterion):
         else:
             val_ci = c_index(risk_pred, t, e)
             conInd += val_ci * t.size(0)
+
+        df_batch = pd.DataFrame(list(fname), columns=['Slice_File_Name'])
+        df_batch['Prediction'] = risk_pred.cpu().detach().numpy()
+        df_batch['Time'] = t.cpu().detach().numpy()
+        df_batch['Event'] = e.cpu().detach().numpy()
+
+        df_all_pred = pd.concat([df_all_pred, df_batch], ignore_index=True)
     
-    return coxLoss, conInd
+    df_all_pred.sort_values(by=['Slice_File_Name'], inplace=True)
+
+    # Calculating c-index for entire testing set, not just per batch 
+    all_pred = np.array(df_all_pred['Prediction'])
+    all_time = np.array(df_all_pred['Time'])
+    all_event = np.array(df_all_pred['Event'])
+
+    if args.USE_GH:
+        val_all_cind = gh_c_index(all_pred)
+    else:
+        val_all_cind = c_index(all_pred, all_time, all_event)
+
+    
+    return coxLoss, conInd, val_all_cind, df_all_pred
 
 
 def kfold_train(data_info_path, data_img_path, out_dir_path, k=None, seed=16):
@@ -173,7 +196,7 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None, seed=16):
             # Train the model
             train_loss, train_cind = train_epoch(model, device, train_loader, criterion, optimizer)
             # validate the model
-            valid_loss, valid_cind = valid_epoch(model, device, valid_loader, criterion)
+            valid_loss, valid_cind, _, _ = valid_epoch(model, device, valid_loader, criterion)
 
             # Get average metrics for this epoch
             train_loss = train_loss / len(train_loader.sampler)
@@ -195,6 +218,8 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None, seed=16):
             history['train_cind'].append(train_cind)
             history['valid_cind'].append(valid_cind)
         # END epoch loop
+
+        _, _, total_valid_cind, valid_predictions = valid_epoch(model, device, valid_loader, criterion)
 
         # Store trained model for this fold
         history['model'] = model
