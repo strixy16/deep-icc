@@ -406,8 +406,8 @@ def train_main():
     train_info_path = os.path.join(args.DATA_DIR, args.TRAIN_LABEL_FILE)
     test_info_path = os.path.join(args.DATA_DIR, args.TEST_LABEL_FILE)
 
-    train_img_path = os.path.join(args.DATA_DIR, args.IMG_LOC_PATH, str(args.ORIG_IMG_DIM), 'train/')
-    test_img_path = os.path.join(args.DATA_DIR, args.IMG_LOC_PATH, str(args.ORIG_IMG_DIM), 'test/')
+    train_img_path = os.path.join(args.DATA_DIR, args.IMG_LOC_PATH, 'train/')
+    test_img_path = os.path.join(args.DATA_DIR, args.IMG_LOC_PATH, 'test/')
 
     best_model, train_loss, train_cind, valid_loss, valid_cind = kfold_train(train_info_path, train_img_path, out_path,
                                                                              k=args.K, seed=args.SEED)
