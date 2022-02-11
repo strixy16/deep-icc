@@ -340,28 +340,29 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None, seed=16):
 
     if not args.DEBUG:
         with open(os.path.join(out_dir_path, 'k_fold_results.txt'), 'w') as out_file:
-                out_file.write("Performance of {} fold cross validation".format(args.K))
-                out_file.write("Performance of each fold:")
-                finalperf.to_csv(out_file, mode='a', index=False)
+                out_file.write("Performance of {} fold cross validation\n".format(args.K))
+                out_file.write("Performance of each fold:\n")
+                finalperf.to_csv(out_file, mode='a', sep="\t", index=False)
 
                 out_file.write('\n')
-                out_file.write('Averaged Final Performance of all folds:')
+                out_file.write('Averaged Final Performance of all folds:\n')
                 out_file.write("Average Final Training Loss: {:.3f} \nAverage Final Validation Loss: {:.3f} \n"
                                "Average Final Training C-Index: {:.3f} \nAverage Final Validation C-Index: {:.3f}\n".format(
                                    finalperf['Final_Train_Loss'].mean(), finalperf['Final_Train_C-index'].mean(),
                                     finalperf['Final_Valid_Loss'].mean(), finalperf['Final_Valid_C-index'].mean()))
-
-                out_file.write('Averaged Overall Performance (across epochs and folds):')
+                out_file.write('\n')
+                out_file.write('Averaged Overall Performance (across epochs and folds):\n')
                 out_file.write("Average Training Loss: {:.3f} \nAverage Validation Loss: {:.3f}\n"
                                "Average Training C-Index: {:.3f} \nAverage Validation C-Index: {:.3f}\n".format(
                                    np.mean(trainl_f), np.mean(validl_f), np.mean(trainc_f), np.mean(validc_f)))
-
-                out_file.write("Validation C-index for predictions from all fold models: {:.3f}".format(val_all_cind))
-
+                out_file.write('\n')
+                out_file.write("Validation C-index for predictions from all fold models: {:.3f}\n".format(val_all_cind))
+                out_file.write('\n')
                 out_file.write("Performance of best fold, {}:".format(best_fold))
                 out_file.write("Best Training Loss: {:.3f} \nBest Validation Loss: {:.3f} \n"
                             "Best Training C-index: {:.3f} \nBest Validation C-index: {:.3f} \n".format(
                                 tr_final_loss, val_final_loss, tr_final_cind, val_final_cind))
+                out_file.write('\n')
 
     # Return model, loss, and c-ind from the best fold
     return best_model, tr_final_loss, tr_final_cind, val_final_loss, val_final_cind
