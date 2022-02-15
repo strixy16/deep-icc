@@ -1,4 +1,4 @@
-function train_test_split_HDFS
+function train_test_split_HDFS(conf_f)
     % Function to split HDFS bin files of all cancer types into a train and
     % test folder. The split will be 90-10 train-test.
     % First will split into the three cancer types
@@ -13,8 +13,19 @@ function train_test_split_HDFS
     rng('default');
     rng(1);
     
+    % Getting variables from configuration file
+    if ischar(conf_f)
+        conf_f = str2func(conf_f);
+        options = conf_f();
+    else
+        options = conf_f;
+    end
+    
     % Load in label data for all cancer types
-    all_label_data = readtable("../../Data/HDFS_Scout_all.xlsx");
+    all_label_data = readtable(options.Labels);
+    
+    % How many cancer types to split in for loop
+    num_canc_types = size(unique(all_label_data.Cancer_Type), 1);
     
 %     hcc_labels = readtable("../../Data/HCC_survival_sorted.xlsx");
 %     mcrc_labels = readtable("../../Data/TCIA_CRLM_Cases_Final_De-identified");
@@ -25,7 +36,7 @@ function train_test_split_HDFS
     testSet = cell2table(cell(0,4), 'VariableNames', all_label_data.Properties.VariableNames);
     
     % Go through each cancer type to split data
-    for idx = 1:3
+    for idx = 1:num_canc_types
         % Get data for one cancer type
         data = all_label_data(all_label_data.Cancer_Type == idx-1, :);
         
@@ -34,9 +45,9 @@ function train_test_split_HDFS
         data_uncen = data(data.HDFS_Code == 1, :);
         
         % Split censored data into train and test
-        [trainInd_cen, testInd_cen] = crossvalind('HoldOut', size(data_cen,1), 0.1);
+        [trainInd_cen, testInd_cen] = crossvalind('HoldOut', size(data_cen,1), options.TestSize);
         % Split uncensored data into train and test
-        [trainInd_uncen, testInd_uncen] = crossvalind('HoldOut', size(data_uncen,1), 0.1);
+        [trainInd_uncen, testInd_uncen] = crossvalind('HoldOut', size(data_uncen,1), options.TestSize);
         
         % Add all training data to main table
         trainSet = [trainSet; data_cen(trainInd_cen, :); data_uncen(trainInd_uncen, :)];
@@ -50,14 +61,29 @@ function train_test_split_HDFS
     testSet = sortrows(testSet, {'Cancer_Type', 'ScoutID'});
     
     % Save out the train and test set as spreadsheets
-    writetable(trainSet, "../../Data/HDFS_train_labels.xlsx", 'writevariablenames', 1);
-    writetable(testSet, "../../Data/HDFS_test_labels.xlsx", 'writevariablenames', 1);
+    writetable(trainSet, options.TrainLabels, 'writevariablenames', 1);
+    writetable(testSet, options.TestLabels, 'writevariablenames', 1);
+    
+    % Add underscore to ScoutIDs in train and test set so entire ScoutID is
+    % used in finding bin files. Prevents errors concerning ScoutIDs ending
+    % in a single digit and that being in other ScoutIDs (e.g.
+    % ICC_Radiogen_Add2 and ICC_Radiogen_Add23 both being picked up)
+    trainSet.ScoutID = strcat(trainSet.ScoutID, "_");
+    testSet.ScoutID = strcat(testSet.ScoutID, "_");
 
     % Move bin files into train and test directories
-    bin_file_dir = "../../Data/Images/Labelled_Tumors/220/Original/";
+    bin_file_dir = options.BinLoc;
     bin_files = dir(bin_file_dir);
     bin_files = struct2table(bin_files);
     bin_file_names = natsort(bin_files{:,'name'});
+    
+    % Make sure new bin file directories exist 
+    if ~exist(options.TrainDestination, 'dir')
+        mkdir(options.TrainDestination)
+    end
+    if ~exist(options.TestDestination, 'dir')
+        mkdir(options.TestDestination)
+    end
     
     for pat_idx=1:size(all_label_data)
         pat_ID = all_label_data.ScoutID{pat_idx};
@@ -66,17 +92,17 @@ function train_test_split_HDFS
         pat_bin_files = contains(bin_file_names, pat_ID_u);
         files_to_move = bin_file_names(pat_bin_files);
         
-        if any(contains(trainSet.ScoutID, pat_ID))
+        if any(contains(trainSet.ScoutID, pat_ID_u))
             for file_idx = 1:size(files_to_move, 1)
                 source = strcat(bin_file_dir, files_to_move{file_idx});
-                destination = "../../Data/Images/Labelled_Tumors/220/train";
+                destination = options.TrainDestination;
                 
                 copyfile(source, destination)
             end
-        elseif any(contains(testSet.ScoutID, pat_ID))
+        elseif any(contains(testSet.ScoutID, pat_ID_u))
             for file_idx = 1:size(files_to_move, 1)
                 source = strcat(bin_file_dir, files_to_move{file_idx});
-                destination = "../../Data/Images/Labelled_Tumors/220/test";
+                destination = options.TestDestination;
                 
                 copyfile(source, destination)
             end

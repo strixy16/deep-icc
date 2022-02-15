@@ -12,19 +12,25 @@ function opt = HDFS_train_tumors
     % (32 x 32 is for LeNet)
     % (299 x 299 is Inception requirement)
     % (1024 x 1024 is DeepConvSurv requirement)
-    opt.ImageSize = [220 220];
+    opt.ImageSize = [221 221];
     
     % Location of image files for tumor image set
-    opt.ImageLoc = "../../Data/All_CT/Tumor/";
+%     opt.ImageLoc = "../../Data/All_CT/Tumor/";
+    
+    % Test percentage for train-test split
+    opt.TestSize = 0.25;
+    
+    test_perc = opt.TestSize * 100;
+    train_perc = 100 - (test_perc);
     
     % Location of bin folder to output tumor image slice set at end of
     % new_preprocessMHA
-    opt.BinLoc = strcat("../../Data/Images/Labelled_Tumors/", string(opt.ImageSize(1)), "/train/");
+    opt.BinLoc = strcat("/Users/katyscott/Desktop/HDFS_Project/Data/Images/Labelled_Tumors/221/HCC_MCRC_ICC_", string(train_perc),"_", string(test_perc),"/train/");
     
     % Output CSV setup for createCSV
-    opt.CSVname = "../../Data/Labels/HDFS_train_tumors.csv";
+    opt.CSVname = strcat("/Users/katyscott/Desktop/HDFS_Project/Data/Labels/HCC_MCRC_ICC_HDFS_", string(train_perc),"_", string(test_perc),"_train_tumors.csv");;
     opt.CSV_header = {'File', 'Pat_ID', 'Slice_Num', 'HDFS_Code', 'HDFS_Time'};
     
-    opt.Labels = "../../Data/HDFS_train_labels.xlsx";
+    opt.Labels = strcat("/Users/katyscott/Desktop/HDFS_Project/Data/Labels/HCC_MCRC_ICC_HDFS_", string(train_perc),"_", string(test_perc),"_train.xlsx");
     
 end
