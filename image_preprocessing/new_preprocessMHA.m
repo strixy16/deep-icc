@@ -1,4 +1,15 @@
 function new_preprocessMHA(conf_f)
+%Name: new_preprocessMHA.m
+%Description: Code to preprocess Insight Meta-Image imaging data for ICC project. Generated
+%             based on DataGeneration.m, adapted from preprocessMHA.m Travis Williams
+%             2020.
+%
+%INPUT: conf_f: configuration file for certain variables 
+%OUTPUT: bin files of images, cropped to largest tumor size, background set
+%       to -1000
+%Environment: MATLAB R2021a
+%Notes: 
+%Author: Katy Scott
 
     if ischar(conf_f) || isstring(conf_f)
         conf_f = str2func(conf_f);
