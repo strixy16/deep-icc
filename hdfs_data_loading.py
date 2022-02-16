@@ -37,6 +37,15 @@ class HDFSTumorDataset(Dataset):
         return len(self.info)
 
     def __getitem__(self, idx):
+        """
+        Getter function
+
+        :param: idx: int, index into the dataset
+        :return: X_tensor: torch.Tensor, image data for indexed patient
+        :return: t_tensor: torch.Tensor, time label for indexed patient
+        :return: e_tensor: torch.Tensor, event label for indexed patient
+        :return: fname: str, file name for indexed patient
+        """
         # set up file path for loading
         img_path = os.path.join(self.img_dir, self.img_fname.iloc[idx])
         # Load in CT image as 1D array
@@ -53,6 +62,7 @@ class HDFSTumorDataset(Dataset):
         e_tensor = torch.Tensor([self.event_label[idx]])
         t_tensor = torch.Tensor([self.time_label[idx]])
 
+        # Get file name associated with these data
         fname = self.img_fname.iloc[idx]
 
         return X_tensor, t_tensor, e_tensor, fname
