@@ -202,24 +202,24 @@ class LiCNN(nn.Module):
         return x
 
 
-class ZhangCNN():
-    """
-    Implementation of network from Zhang, Liwen, et al. "A deep learning risk prediction model for 
-    overall survival in patients with gastric cancer: a multicenter study." Radiotherapy and Oncology 
-    150 (2020): 73-80.
-    """
-    def __init__(self):
-        super(ZhangCNN, self).__init__()
+# class ZhangCNN():
+#     """
+#     Implementation of network from Zhang, Liwen, et al. "A deep learning risk prediction model for 
+#     overall survival in patients with gastric cancer: a multicenter study." Radiotherapy and Oncology 
+#     150 (2020): 73-80.
+#     """
+#     def __init__(self):
+#         super(ZhangCNN, self).__init__()
     
-    def forward(self, x):
-        return x
+#     def forward(self, x):
+#         return x
     
 
 #--------------------------- Evaluation Functions ---------------------------------------
 
 
 def c_index(risk_pred, y, e):
-    """ Calculate c-index
+    """ Calculate Harrel's c-index
 
     Args:
         risk_pred: np.ndarray or torch.Tensor, model prediction (risk scores)
@@ -276,33 +276,33 @@ def gh_c_index(risk_pred):
     return cind[0]
 
 
-def get_IBS(train_times, train_events, test_times, test_events, test_risk_pred, times):
-    """
-    Calculate the Integrated Brier Score
+# def get_IBS(train_times, train_events, test_times, test_events, test_risk_pred, times):
+#     """
+#     Calculate the Integrated Brier Score
 
-    Args:
-        train_times: np.ndarray or torch.Tensor, survival times for training data
-        test_times: np.ndarray or torch.Tensor, survival times for testing data
-    """
+#     Args:
+#         train_times: np.ndarray or torch.Tensor, survival times for training data
+#         test_times: np.ndarray or torch.Tensor, survival times for testing data
+#     """
 
-    if not isinstance(train_times, np.ndarray):
-        train_times = train_times.detach().cpu().numpy()
-    if not isinstance(train_events, np.ndarray):
-        train_events = train_events.detach().cpu().numpy()
-    if not isinstance(test_times, np.ndarray):
-        test_times = test_times.detach().cpu().numpy()
-    if not isinstance(test_events, np.ndarray):
-        test_events = test_events.detach().cpu().numpy()
-    if not isinstance(test_risk_pred, np.ndarray):
-        test_risk_pred = test_risk_pred.detach().cpu().numpy()
-    if not isinstance(times, np.ndarray):
-        times = times.detach().cpu().numpy()
+#     if not isinstance(train_times, np.ndarray):
+#         train_times = train_times.detach().cpu().numpy()
+#     if not isinstance(train_events, np.ndarray):
+#         train_events = train_events.detach().cpu().numpy()
+#     if not isinstance(test_times, np.ndarray):
+#         test_times = test_times.detach().cpu().numpy()
+#     if not isinstance(test_events, np.ndarray):
+#         test_events = test_events.detach().cpu().numpy()
+#     if not isinstance(test_risk_pred, np.ndarray):
+#         test_risk_pred = test_risk_pred.detach().cpu().numpy()
+#     if not isinstance(times, np.ndarray):
+#         times = times.detach().cpu().numpy()
 
-    train_survival = np.array(train_events, train_times).T
+#     train_survival = np.array(train_events, train_times).T
 
 
 
-    return None
+#     return None
 
 
 class NegativeLogLikelihood(nn.Module):
