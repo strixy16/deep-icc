@@ -1,4 +1,4 @@
-function opt = all_tumors
+function opt = all_cholangio_tumors
 %Description: Configuration file for createCSV for both MSK and Erasmus
 %ICC tumor images
 %
