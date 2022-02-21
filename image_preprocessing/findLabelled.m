@@ -9,7 +9,7 @@ function findLabelled(conf_f)
         error("Input must be struct or name of .m config file")
     end
 
-    all_file_info = dir(strcat(options.all_file_dir, "*umor*"));
+    all_file_info = dir(strcat(options.all_file_dir, options.search_string));
 
     tbl_all_file_info = struct2table(all_file_info);
 
@@ -32,13 +32,18 @@ function findLabelled(conf_f)
         labelled_patient_idx = contains(cell_all_file_names, patient_ID);
 
         files_to_move = cell_all_file_names(labelled_patient_idx);
-
-        for file_idx = 1:size(files_to_move, 1)
-            source = strcat(options.all_file_dir, files_to_move{file_idx});
-            destination = strcat(options.destination_dir, files_to_move{file_idx});
-
-            status = copyfile(source, destination);
+        
+        % Display patient ID if this patient has a label but no images
+        if size(files_to_move,1) == 0
+            disp(patient_ID);
         end
+
+%         for file_idx = 1:size(files_to_move, 1)
+%             source = strcat(options.all_file_dir, files_to_move{file_idx});
+%             destination = strcat(options.destination_dir, files_to_move{file_idx});
+% 
+%             status = copyfile(source, destination);
+%         end
 
     end
 end

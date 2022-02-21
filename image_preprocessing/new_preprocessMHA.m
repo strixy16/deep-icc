@@ -24,7 +24,7 @@ function new_preprocessMHA(conf_f)
 %     options = msk_tumor();
     
     % Getting list of MHD tumor files (captures Tumor and tumor)
-    baseDirs = dir(strcat(options.ImageLoc, "*umor*.mhd"));
+    baseDirs = dir(strcat(options.ImageLoc, options.search_string,".mhd"));
     
     % Counter for loop
     nData = size(baseDirs, 1);
@@ -185,9 +185,9 @@ function new_preprocessMHA(conf_f)
 %             imageCrR = imresize(imageCr, options.ImageSize);
             
 %             figure(1)
+%             image(tumor_vol(:,:,currSlice))
+%             figure(2)
 %             image(imageCr)
-% %             figure(2)
-%             image(imageCrR)
             
             % replace background 0s with -1000
 %             imageCrRB = imageCrR;
@@ -199,7 +199,7 @@ function new_preprocessMHA(conf_f)
             
             % Check if Zero and Thousand directory exists, create if not
 %             zero_dir = strcat(options.BinLoc, 'Zero/');
-            thous_dir = strcat(options.BinLoc, 'Original/');
+            thous_dir = options.BinLoc;
 %             if ~exist(zero_dir, 'dir')
 %                 mkdir(zero_dir)
 %             end
