@@ -9,8 +9,11 @@ from torchinfo import summary
 from torch.utils.data import DataLoader, SubsetRandomSampler
 
 from hdfs_data_loading import *
-import hdfs_config as args
 from hdfs_models import *
+
+"""SET THIS AS HDFS_CONFIG FOR TUMORS AND HDFS_LIVER_CONFIG FOR LIVER IMAGES"""
+# import hdfs_config as args
+import hdfs_liver_config as args
 
 
 def view_images(data_loader):
@@ -22,7 +25,7 @@ def view_images(data_loader):
 
         # Function assumes batch size of 32
         # Number of columns to make in subplot
-        N_COL = 8
+        N_COL = 4
         # Number of rows to make in subplot
         N_ROWS = 4
 
@@ -171,7 +174,7 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None):
     """
     
     # Load training hdfs_dataset
-    hdfs_dataset = HDFSTumorDataset(data_info_path, data_img_path, args.ORIG_IMG_DIM)
+    hdfs_dataset = HDFSTumorDataset(data_info_path, data_img_path, args.ORIG_IMG_DIM, transform_list=args.TRANSFORM_LIST)
 
     # K-fold cross validation setup
     # Group fold keeps all slices from same patient together
@@ -401,7 +404,7 @@ def test_model(model, data_info_path, data_img_path, device):
         df_all_pred: pandas Dataframe, table of each slice's prediction, time and event labels
     """
     # Create Dataset object for test data
-    test_dataset = HDFSTumorDataset(data_info_path, data_img_path, args.ORIG_IMG_DIM)
+    test_dataset = HDFSTumorDataset(data_info_path, data_img_path, args.ORIG_IMG_DIM, args.TRANSFORM_LIST)
     # Set up DataLoader for test data
     test_loader = DataLoader(test_dataset, batch_size=args.BATCH_SIZE, shuffle=True, drop_last=False)
 
@@ -434,8 +437,8 @@ def test_model(model, data_info_path, data_img_path, device):
         risk_pred = model(X)
 
         # Calculate loss and evaluation metrics
-        test_loss = criterion(-risk_pred, t, e, model)
-        coxLoss += test_loss.item() * t.size(0)
+        # test_loss = criterion(-risk_pred, t, e, model)
+        # coxLoss += test_loss.item() * t.size(0)
 
         # Saving model prediction to calculate evaluation metrics on entire dataset at once
         df_batch = pd.DataFrame(list(fname), columns=['Slice_File_Name'])
@@ -450,9 +453,9 @@ def test_model(model, data_info_path, data_img_path, device):
     df_all_pred.sort_values(by=['Slice_File_Name'], inplace=True)
 
     # Calculating c-index for entire testing set, not just per batch 
-    all_pred = np.array(df_all_pred['Prediction'])
-    all_time = np.array(df_all_pred['Time'])
-    all_event = np.array(df_all_pred['Event'])
+    all_pred = np.array(df_all_pred['Prediction'], dtype=float)
+    all_time = np.array(df_all_pred['Time'], dtype=float)
+    all_event = np.array(df_all_pred['Event'], dtype=float)
 
     if args.USE_GH:
         # Gonen and Hiller c-index
@@ -461,8 +464,15 @@ def test_model(model, data_info_path, data_img_path, device):
         # Harrel's c-index
         test_cind = c_index(all_pred, all_time, all_event)
 
+    # Calculating criterion for entire validation set, not just per batch
+    all_pred_T = torch.from_numpy(-all_pred).to(device)
+    # Time gets transposed in the criterion calculation, so needs to be 2D (Second dimension is just 1)
+    all_time_T = torch.reshape(torch.from_numpy(all_time), (all_time.shape[0], 1)).to(device)
+    all_event_T = torch.from_numpy(all_event).to(device)
+
     # Get average metrics for test epoch
-    test_loss = coxLoss / len(test_loader.sampler)
+    test_loss = criterion(all_pred_T, all_time_T, all_event_T, model)
+    test_loss = test_loss.item()
 
     # Print evaluation metrics
     print("Testing Results:")
@@ -478,7 +488,7 @@ def train_main():
     Main function to run if training a model from scratch
     """
     # Output setup
-    out_dir = 'Output/' + args.MODEL_NAME + '/' + datetime.now().strftime("%Y_%m_%d_%H%M") + "_train"
+    out_dir = 'Output/' + args.MODEL_NAME + '/' + args.IMAGE_TYPE + '/' + datetime.now().strftime("%Y_%m_%d_%H%M") + "_train"
     out_path = os.path.join(args.DATA_DIR, out_dir)
 
     if not args.DEBUG:
@@ -500,8 +510,7 @@ def train_main():
     test_img_path = os.path.join(args.DATA_DIR, args.IMG_LOC_PATH, 'test/')
 
     # Train model with k-fold cross-validation
-    best_model, train_loss, train_cind, valid_loss, valid_cind = kfold_train(train_info_path, train_img_path, out_path,
-                                                                             k=args.K, seed=args.SEED)
+    best_model, train_loss, train_cind, valid_loss, valid_cind = kfold_train(train_info_path, train_img_path, out_path, k=args.K)
     torch.cuda.empty_cache()
 
     # Run the trained model through testing
@@ -551,7 +560,7 @@ def load_main():
 
     # Set up loading paths for labels and image data
     test_info_path = os.path.join(args.DATA_DIR, args.TEST_LABEL_FILE)
-    test_img_path = os.path.join(args.DATA_DIR, args.IMG_LOC_PATH, str(args.ORIG_IMG_DIM), 'test/')
+    test_img_path = os.path.join(args.DATA_DIR, args.IMG_LOC_PATH, 'test/')
 
     # Load the pre-trained model
     load_model = torch.load(args.LOAD_MODEL_PATH)
