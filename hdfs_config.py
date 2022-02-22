@@ -1,4 +1,5 @@
 # Configuration file for use with HDFS training and testing
+from torchvision import transforms
 
 # Data settings
 # Variables to set up file paths properly
@@ -9,8 +10,12 @@ TRAIN_PERC = 100 - TEST_PERC
 # Cancer types to include in analysis (acronyms separated by _ as in the directories)
 CANCER_TYPES = "HCC_MCRC_ICC"
 
+# Type of CT image to load
+IMAGE_TYPE = "Tumor"
 # Dimension of CT image to load
 ORIG_IMG_DIM = 221
+# Transforms to apply to image
+TRANSFORM_LIST = transforms.Compose([transforms.ToTensor()])
 
 # Full path to data directory where images, labels, etc. are stored and output will be saved
 DATA_DIR = '/Data/'
@@ -36,7 +41,7 @@ OPTIM = 'Adam'
 BATCH_SIZE = 16
 
 # Number of training epochs to run
-EPOCHS = 50
+EPOCHS = 35
 
 # Initial learning rate
 LR = 0.0003
@@ -52,13 +57,13 @@ K = 5
 
 # Mode to run HDFS_train in
 # Train mode creates a model and trains it from scratch using k-fold validation and tests the best fold
-TRAIN_MODE = True 
+TRAIN_MODE = False 
 # Load mode loads the trained model from LOAD_MODEL_PATH and runs it through testing
-LOAD_MODE = False
+LOAD_MODE = True
 
 # If just testing with existing model, put path to the model you wish to load here
 LOAD_MODEL_PATH = '/Data/Output/HDFSModel2/2022_02_03_2048_train/k_cross_HDFSModel2.pt'
 
 # Debugging
 # If true, prevents output from saving
-DEBUG = False
+DEBUG = True
