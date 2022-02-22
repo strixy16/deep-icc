@@ -10,7 +10,8 @@ from torch.utils.data import Dataset, DataLoader
 
 class HDFSTumorDataset(Dataset):
     # HDFSTumorDataset
-    def __init__(self, info_file, img_dir, orig_img_dim, transform_list=None):
+    def __init__(self, info_file, img_dir, orig_img_dim, 
+                transform_list=transforms.Compose([transforms.ToTensor()])):
         """
         Initialize HDFSTumorDataset class
         Dataset for segmented CT tumor images with HDFS labels
@@ -31,7 +32,7 @@ class HDFSTumorDataset(Dataset):
         # Currently just transforming to Tensor
         # TODO: add resizing, normalization, etc. as needed
         # TODO: make this an input argument properly
-        self.transform_list = transforms.Compose([transforms.ToTensor()])
+        self.transform_list = transform_list
 
     def __len__(self):
         return len(self.info)
@@ -55,9 +56,9 @@ class HDFSTumorDataset(Dataset):
 
         # print(np.mean(img), np.std(img))
         # Apply transformations to image and convert to Tensor
-        transform_list = transforms.Compose([transforms.ToTensor()
-                                       ])
-        X_tensor = transform_list(img)
+        # transform_list = transforms.Compose([transforms.ToTensor()
+        #                                ])
+        X_tensor = self.transform_list(img)
         # Get corresponding event and time label for slice
         e_tensor = torch.Tensor([self.event_label[idx]])
         t_tensor = torch.Tensor([self.time_label[idx]])
