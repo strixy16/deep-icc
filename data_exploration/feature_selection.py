@@ -11,7 +11,7 @@ from radiomics import firstorder, imageoperations
 """ Following https://github.com/AIM-Harvard/pyradiomics/blob/master/notebooks/helloFeatureClass.ipynb """
 
 # Get name of all tumor files to load
-tumor_dir = "/media/katy/Data/ICC/Data/All_CT/Tumor"
+tumor_dir = "/media/katy/Data/ICC/Data/All_CT/Multi_Tumor"
 all_tumor_files = os.listdir(tumor_dir)
 tumor_files_mhd = [x for x in all_tumor_files if "mhd" in x]
 # Remove tumors that don't have corresponding liver image (confirmed externally)
@@ -47,29 +47,25 @@ for idx in range(len(liver_labels)):
     print("Patient ", idx,": ", scout_id)
     ## DATA LOADING ##
 
-    tumor_file = [f for f in tumor_files_mhd if scout_id in f]
+    tumor_files = [f for f in tumor_files_mhd if scout_id in f]
+    print(len(tumor_files))
     liver_file = [f for f in liver_files_mhd if scout_id in f]
-    if len(tumor_file) != 1:
-        print(tumor_file)
-        raise Exception("scout_id should find 1 tumor file. Caught %i files.".format(len(tumor_file)))
+    # if len(tumor_file) != 1:
+    #     print(tumor_file)
+    #     raise Exception("scout_id should find 1 tumor file. Caught %i files.".format(len(tumor_file)))
     if len(liver_file) != 1:
         print(liver_file)
-        raise Exception("scout_id should find 1 liver file. Caught %i files.".format(len(tumor_file)))
+        raise Exception("scout_id should find 1 liver file. Caught %i files.".format(len(liver_file)))
 
         
     # Loading patient idx image
-    tumor_file = tumor_file[0]
+    # tumor_file = tumor_file[0]
     liver_file = liver_file[0]
 
     # print("Tumor file: ", tumor_file)
     # print("Liver file: ", liver_file)
 
-    # Load tumor image
-    tumor_img_path = os.path.join(tumor_dir, tumor_file)
-    tumor_mhd_image = sitk.ReadImage(tumor_img_path, imageIO="MetaImageIO", outputPixelType=sitk.sitkInt64)
-    # Convert to array for mask making
-    tumor_arr = sitk.GetArrayFromImage(tumor_mhd_image)
-
+    # Load liver first to get size for initializing total tumor mask
     liver_img_path = os.path.join(liver_dir, liver_file)
     liver_mhd_image = sitk.ReadImage(liver_img_path, imageIO="MetaImageIO", outputPixelType=sitk.sitkInt64)
     # Convert to array for mask making
@@ -78,17 +74,34 @@ for idx in range(len(liver_labels)):
     # This one patient has too many slices and causes the program to run out of memory
     # So I select from 700 down to the 300 that have liver/tumor pixels with some boundary slices
     if scout_id == "ICC_Radiogen_Add28_":
-        del tumor_mhd_image, liver_mhd_image
-        tumor_arr = tumor_arr[300:600,:,:]
+        del liver_mhd_image #tumor_mhd_image, 
+        # tumor_arr = tumor_arr[300:600,:,:]
         liver_arr = liver_arr[300:600,:,:]
+
+    
+    # Initialize total tumor mask
+    total_tumor_mask = np.full(liver_arr.shape, False, dtype=bool)
+    for tfile in tumor_files:
+        # Load tumor image
+        tumor_img_path = os.path.join(tumor_dir, tfile)
+        tumor_mhd_image = sitk.ReadImage(tumor_img_path, imageIO="MetaImageIO", outputPixelType=sitk.sitkInt64)
+        # Convert to array for mask making
+        tumor_arr = sitk.GetArrayFromImage(tumor_mhd_image)
+
+        if scout_id == "ICC_Radiogen_Add28_":
+            del tumor_mhd_image
+            tumor_arr = tumor_arr[300:600,:,:]
+        
+        tumor_mask = tumor_arr != -1000
+        total_tumor_mask = np.bitwise_or(total_tumor_mask, tumor_mask)
 
     ## MASK MAKING ##
     # Make masks for tumor and liver
     # -1000 is background value in these images
-    tumor_mask = tumor_arr != -1000
+    # tumor_mask = tumor_arr != -1000
     liver_mask = liver_arr != -1000
     # Convert to numeric values for easy handling
-    tumor_mask = tumor_mask.astype(float)
+    tumor_mask = total_tumor_mask.astype(float)
     liver_mask = liver_mask.astype(float)
 
     # Remove tumor from liver image and mask
@@ -172,10 +185,10 @@ for idx in range(len(liver_labels)):
     # del notumor_liver, notumor_livermask, liver_result, tumor_result, liver_fof, tumor_fof,
 # END patient loop
 
-liver_feature_fname = "/media/katy/Data/ICC/HDFS/" + cancer_type + "_HDFS_liver_firstorderfeatures.xlsx"
+liver_feature_fname = "/media/katy/Data/ICC/HDFS/" + cancer_type + "_HDFS_liver_multi_tumor_firstorderfeatures.xlsx"
 liver_features_df.to_excel(liver_feature_fname, index=False)
 
-tumor_feature_fname = "/media/katy/Data/ICC/HDFS/" + cancer_type + "_HDFS_tumor_firstorderfeatures.xlsx"
-tumor_features_df.to_excel(tumor_feature_fname, index=False)
+# tumor_feature_fname = "/media/katy/Data/ICC/HDFS/" + cancer_type + "_HDFS_multi_tumor_firstorderfeatures.xlsx"
+# tumor_features_df.to_excel(tumor_feature_fname, index=False)
 
 print("Feature selection complete")
