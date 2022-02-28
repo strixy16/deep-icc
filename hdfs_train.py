@@ -545,7 +545,7 @@ def load_main():
     Main function if loading a pre-trained model to just run testing on
     """
     # Output setup
-    out_dir = 'Output/' + args.MODEL_NAME + '/' + datetime.now().strftime("%Y_%m_%d_%H%M") + "_load"
+    out_dir = 'Output/' + args.MODEL_NAME + '/' + args.IMAGE_TYPE + '/' + datetime.now().strftime("%Y_%m_%d_%H%M") + "_load"
     out_path = os.path.join(args.DATA_DIR, out_dir)
 
     if not args.DEBUG:
