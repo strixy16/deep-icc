@@ -29,7 +29,7 @@ function createCSV_HDFS(conf_f)
     output_fname = options.CSVname;
     out_dir = fileparts(output_fname);
     if ~exist(out_dir, 'dir')
-        mdkir(out_dir);
+        mkdir(out_dir);
     end
 
     
@@ -61,6 +61,10 @@ function createCSV_HDFS(conf_f)
         
         % Count how many slices exist for this patient
         num_slices = size(labelled_imgfilenames,1);
+        
+        if num_slices == 0
+            disp(patient_ID)
+        end
         
         % Put these into a table
         % Copy the RFS and RFS Code for each row that has this patient ID
