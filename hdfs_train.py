@@ -360,7 +360,10 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None):
    
     # Find fold with best performance
     # Get index of fold with best c-index
-    best_fold = finalperf['Final_Valid_C-index'].idxmax() + 1
+    # best_fold = finalperf['Final_Valid_C-index'].idxmax() + 1
+    
+    # Choose fold with lowest loss value as best
+    best_fold = finalperf['Final_Valid_CPE'].idxmax() + 1
     # Get model from the best fold
     best_model = foldperf['fold{}'.format(best_fold)]['model']
     tr_final_loss = foldperf['fold{}'.format(best_fold)]['train_loss'][-1]
@@ -436,7 +439,7 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None):
                 out_file.write("Validation C-index for predictions from all fold models: {:.3f}".format(val_all_cind))
                 out_file.write("Validation CPE for predictions from all fold models: {:.3f}\n".format(val_all_cpe))
                 out_file.write('\n')
-                out_file.write("Performance of best fold, {}:".format(best_fold))
+                out_file.write("Performance of best fold, {}:\n".format(best_fold))
                 out_file.write("Best Training Loss: {:.3f} \tBest Validation Loss: {:.3f} \n"
                             "Best Training C-index: {:.3f} \tBest Validation C-index: {:.3f} \n"
                             "Best Training CPE: {:.3f} \tBest Validation CPE: {:.3f} \n".format(
