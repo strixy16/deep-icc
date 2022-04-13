@@ -4,7 +4,7 @@ from torchvision import transforms
 # Data settings
 # Variables to set up file paths properly
 # Split percentage of data to use
-TEST_PERC = 20
+TEST_PERC = 10
 TRAIN_PERC = 100 - TEST_PERC
 
 # Cancer types to include in analysis (acronyms separated by _ as in the directories)
@@ -29,7 +29,7 @@ IMG_LOC_PATH = 'Images/Labelled_Liver/' + str(ORIG_IMG_DIM) + '/' + CANCER_TYPES
 MODEL_NAME = "HDFSModel2"
 
 # C-index to use - if true, uses GHCI 
-USE_GH = True
+USE_GH = False
 
 # Random seed to set
 SEED = 16
@@ -38,10 +38,10 @@ SEED = 16
 OPTIM = 'Adam'
 
 # Number of data to use in each minibatch
-BATCH_SIZE = 16
+BATCH_SIZE = 128
 
 # Number of training epochs to run
-EPOCHS = 5
+EPOCHS = 25
 
 # Initial learning rate
 LR = 0.0003
@@ -50,20 +50,20 @@ LR = 0.0003
 # L1 regularization???
 LOSS_WEIGHT_DECAY = 0.005
 # L2 regularization
-OPTIM_WEIGHT_DECAY = 0.0
+OPTIM_WEIGHT_DECAY = 0.000
 
 # Validation
 K = 5
 
 # Mode to run HDFS_train in
 # Train mode creates a model and trains it from scratch using k-fold validation and tests the best fold
-TRAIN_MODE = False
+TRAIN_MODE = True
 # Load mode loads the trained model from LOAD_MODEL_PATH and runs it through testing
-LOAD_MODE = True
+LOAD_MODE = False
 
 # If just testing with existing model, put path to the model you wish to load here
 LOAD_MODEL_PATH = '/Data/Output/HDFSModel2/Tumor/2022_02_03_2048_train/k_cross_HDFSModel2.pt'
 
 # Debugging
 # If true, prevents output from saving
-DEBUG = True
+DEBUG = False
