@@ -12,6 +12,7 @@ import torch.nn as nn
 utils = rpackages.importr('utils')
 utils.chooseCRANmirror(ind=1)
 utils.install_packages("survAUC")
+utils.install_packages("survival")
 
 
 def select_model(modelname):
@@ -261,6 +262,37 @@ def gh_c_index(risk_pred):
 
     # Return the only value in the cind list
     return cind[0]
+
+
+def uno_c_statistic(train_time, train_event, test_time, test_event, risk_preds):
+    survAUC = rpackages.importr('survAUC')
+    survival = rpackages.importr('survival')
+    
+    if not isinstance(train_time, np.ndarray):
+        raise TypeError("Train times must be a numpy array")
+    if not isinstance(train_event, np.ndarray):
+        raise TypeError("Train events must be a numpy array")
+    if not isinstance(test_time, np.ndarray):
+        raise TypeError("Test times must be a numpy array")
+    if not isinstance(test_event, np.ndarray):
+        raise TypeError("Train events must be a numpy array")
+    if not isinstance(risk_preds, np.ndarray):
+        raise TypeError("Risk predictions must be a numpy array")
+
+    R_train_time = robjects.vectors.FloatVector(train_time)
+    R_train_event = robjects.vectors.IntVector(train_event)
+
+    R_test_time = robjects.vectors.FloatVector(test_time)
+    R_test_event = robjects.vectors.IntVector(test_event)
+
+    R_risk_pred = robjects.vectors.FloatVector(risk_preds)
+
+    trainSurv_rsp = survival.Surv(R_train_time, R_train_event)
+    testSurv_rsp = survival.Surv(R_test_time, R_test_event)
+
+    cstat = survAUC.UnoC(trainSurv_rsp, testSurv_rsp, R_risk_pred)
+
+    return cstat
 
 
 class NegativeLogLikelihood(nn.Module):
