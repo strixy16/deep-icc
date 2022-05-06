@@ -29,7 +29,7 @@ def view_images(data_loader):
         # Number of rows to make in subplot
         N_ROWS = 4
 
-        # fig = plt.figure() # Uncomment if you want each batch to have their own figure
+        fig = plt.figure(figsize=(50,50)) # Uncomment if you want each batch to have their own figure
         # This doesn't handle batches that aren't full size (last batch)
         for index in range(1, N_COL*N_ROWS+1):
             # Select subplot to put current image in
@@ -41,7 +41,7 @@ def view_images(data_loader):
 
         # fig.suptitle('HDFS Dataset - preview')
         # Display the complete figure
-        plt.show()
+        plt.savefig("/Data/liver_batch1_slices")
 
 
 def train_epoch(model, device, dataloader, criterion, optimizer):
@@ -222,6 +222,8 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None):
         # Setup dataloader for validation portion of data
         valid_loader = DataLoader(hdfs_dataset, batch_size=args.BATCH_SIZE, sampler=valid_sampler, drop_last=False)
 
+        # view_images(train_loader)
+
         # Create model to train for this fold
         model = select_model(args.MODEL_NAME)
         # Save model to CPU or GPU (if available)
@@ -362,7 +364,7 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None):
     # Get index of fold with best c-index
     # best_fold = finalperf['Final_Valid_C-index'].idxmax() + 1
     
-    # Choose fold with lowest loss value as best
+    # Choose fold with highest valid CPE as best
     best_fold = finalperf['Final_Valid_CPE'].idxmax() + 1
     # Get model from the best fold
     best_model = foldperf['fold{}'.format(best_fold)]['model']
@@ -437,7 +439,7 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None):
                                    np.mean(trainl_f), np.mean(validl_f), np.mean(trainc_f), np.mean(validc_f), np.mean(traincpe_f), np.mean(validcpe_f)))
                 out_file.write('\n')
                 out_file.write("Validation C-index for predictions from all fold models: {:.3f}".format(val_all_cind))
-                out_file.write("Validation CPE for predictions from all fold models: {:.3f}\n".format(val_all_cpe))
+                out_file.write("\nValidation CPE for predictions from all fold models: {:.3f}\n".format(val_all_cpe))
                 out_file.write('\n')
                 out_file.write("Performance of best fold, {}:\n".format(best_fold))
                 out_file.write("Best Training Loss: {:.3f} \tBest Validation Loss: {:.3f} \n"
