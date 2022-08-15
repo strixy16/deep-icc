@@ -28,7 +28,7 @@ IMG_LOC_PATH = 'Images/Labelled_Tumors/' + str(ORIG_IMG_DIM) + '/' + CANCER_TYPE
 # Model to train from hdfs_models
 MODEL_NAME = "HDFSModel2"
 
-# C-index to use - if true, uses GHCI 
+# C-index to use - if true, uses GHCI
 USE_GH = False
 
 # Random seed to set
@@ -66,7 +66,7 @@ LOAD_MODEL_PATH = '/Data/Output/HDFSModel2/Tumor/2022_05_07_1745_train/k_cross_H
 
 # Debugging
 # If true, prevents output from saving
-DEBUG = False
+DEBUG = True
 
 # For running bootstrapping test to check confidence levels for test set
 CONFIDENCE_CHECK = False

@@ -74,7 +74,7 @@ def train_epoch(model, device, dataloader, criterion, optimizer):
         risk_pred = model(X)
 
         if torch.any(torch.isnan(risk_pred)):
-            print("NaN predicted.")
+            print("NaNs predicted by model.")
 
         # Calculate loss and evaluation metrics
         train_loss = criterion(-risk_pred, t, e, model)
@@ -110,7 +110,7 @@ def valid_epoch(model, device, valid_dataloader, criterion, train_dataloader=Non
 
     Args:
         model: pytorch model (nn.Module), trained model to run testing data through
-        device: torch.device, device to use for testing (GPU or CPU) 
+        device: torch.device, device to use for testing (GPU or CPU)
         dataloader: torch.Dataloader, loader object for the validation data
         criterion: loss function to use for evaluatoin
     """
@@ -162,7 +162,7 @@ def valid_epoch(model, device, valid_dataloader, criterion, train_dataloader=Non
     df_all_pred.sort_values(by=['Slice_File_Name'], inplace=True)
 
     # Calculating c-index for entire validation set, not just per batch
-    # Getting prediction, time, and event separated again to pass into c_index and criterion functions 
+    # Getting prediction, time, and event separated again to pass into c_index and criterion functions
     all_pred = np.array(df_all_pred['Prediction'], dtype=float)
     all_time = np.array(df_all_pred['Time'], dtype=float)
     all_event = np.array(df_all_pred['Event'], dtype=float)
@@ -174,7 +174,7 @@ def valid_epoch(model, device, valid_dataloader, criterion, train_dataloader=Non
     val_all_cind = c_index(all_pred, all_time, all_event)
     # Uno's C-statistic calculation
     val_all_cstat = uno_c_statistic(train_time, train_event, all_time, all_event, all_pred)
-    
+
     # Calculating criterion for entire validation set, not just per batch
     all_pred_T = torch.from_numpy(-all_pred).to(device)
     # Time gets transposed in the criterion calculation, so needs to be 2D (Second dimension is just 1)
@@ -195,16 +195,16 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None):
         data_img_path: str, file path to directory containing training image data
         out_dir_path: str, file path to output directory for saving results
         k: int, number of folds to use
-    
+
     Returns:
     best_model, tr_final_loss, tr_final_cind, val_final_loss, val_final_cind
-        best_model: trained model, chosen as the fold with the highest final c-index 
+        best_model: trained model, chosen as the fold with the highest final c-index
         tr_final_loss: float, final training loss value from best model
         tr_final_cind: float, final training c-index value from best model
         val_final_loss: float, final validation loss value from best model
         val_final_cind: float, final validation c-index value from best model
     """
-    
+
     # Load training hdfs_dataset
     hdfs_dataset = HDFSTumorDataset(data_info_path, data_img_path, args.ORIG_IMG_DIM, transform_list=args.TRANSFORM_LIST)
 
@@ -247,7 +247,7 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None):
         model = select_model(args.MODEL_NAME)
         # Save model to CPU or GPU (if available)
         model.to(device)
-        
+
         # Set optimizer
         if args.OPTIM == 'SGD':
             optimizer = optim.SGD(model.parameters(), lr=args.LR, weight_decay=args.OPTIM_WEIGHT_DECAY)
@@ -300,7 +300,7 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None):
             best_fold_valid_preds = valid_predictions
 
         all_fold_valid_predictions = pd.concat([all_fold_valid_predictions, valid_predictions], ignore_index=True)
-        
+
         # Store trained model for this fold
         history['model'] = model
         # Store data for this fold
@@ -312,7 +312,7 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None):
     # END k-fold loop
     finalperf = finalperf.astype({'Fold': int})
 
-     # Calculating c-index for entire testing set, not just per batch 
+     # Calculating c-index for entire testing set, not just per batch
     all_pred = np.array(all_fold_valid_predictions['Prediction'])
     all_time = np.array(all_fold_valid_predictions['Time'])
     all_event = np.array(all_fold_valid_predictions['Event'])
@@ -372,11 +372,11 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None):
     else:
         plt.show()
 
-   
+
     # Find fold with best performance
     # Get index of fold with best c-index
     # best_fold = finalperf['Final_Valid_C-index'].idxmax() + 1
-    
+
     # Choose fold with highest valid Uno C-statistic as best
     best_fold = finalperf['Final_Valid_Loss'].idxmin() + 1
     # Get model from the best fold
@@ -387,7 +387,7 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None):
     val_final_loss = foldperf['fold{}'.format(best_fold)]['valid_loss'][-1]
     val_final_cind = foldperf['fold{}'.format(best_fold)]['valid_cind'][-1]
     val_final_unoc = foldperf['fold{}'.format(best_fold)]['valid_unoc'][-1]
-    
+
 
     if args.DEBUG:
         # Output performance for this run
@@ -475,11 +475,11 @@ def test_model(model, test_data_info_path, test_data_img_path, train_data_info_p
         model: pytorch model (nn.Module), trained model to run testing data through
         data_info_path: str, file path to label spreadsheet for testing data
         data_img_path: str, file path to directory containing testing image data
-        device: torch.device, device to use for testing (GPU or CPU) 
-    
+        device: torch.device, device to use for testing (GPU or CPU)
+
     Returns:
         test_loss: float, criterion result for model predictions on testing set, calculated per batch and averaged
-        test_cind: float, concordance index for model predictions on testing set, calculated over entire set 
+        test_cind: float, concordance index for model predictions on testing set, calculated over entire set
         df_all_pred: pandas Dataframe, table of each slice's prediction, time and event labels
     """
     # Create Dataset object for test data
@@ -495,7 +495,7 @@ def test_model(model, test_data_info_path, test_data_img_path, train_data_info_p
     model.to(device)
 
 
-    # Setting loss function 
+    # Setting loss function
     criterion = NegativeLogLikelihood(device)
 
     test_loss, test_cind, test_unoc, test_predictions = valid_epoch(model, device, test_loader, criterion, train_loader)
@@ -542,14 +542,14 @@ def test_model(model, test_data_info_path, test_data_img_path, train_data_info_p
 
 #     # Create Dataset object for test data
 #     test_dataset = HDFSTumorDataset(test_info_path, test_img_path, args.ORIG_IMG_DIM, args.TRANSFORM_LIST)
-    
+
 #     df_unoc_confidence = pd.DataFrame(columns=['UnoC'])
 
 #     np_train_time = np.array(train_predictions['Time'], dtype=float)
 #     np_train_event = np.array(train_predictions['Event'], dtype=float)
 
 #     for x in range(5):
-#         # Setting up random sampler 
+#         # Setting up random sampler
 #         samp_test_dataset = RandomSampler(test_dataset, replacement=True, num_samples=num_samples)
 
 #         # Set up DataLoader for test data
@@ -700,4 +700,3 @@ if __name__ == '__main__':
         load_main()
     else:
         raise Exception("No mode selected. Choose TRAIN or LOAD MODE in hdfs_config")
-
