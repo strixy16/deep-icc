@@ -5,13 +5,10 @@ function opt = HDFS_test_liver
     test_perc = opt.TestSize * 100;
     train_perc = 100 - (test_perc);
     
-    opt.BinLoc = strcat("/Users/katyscott/Desktop/HDFS_Project/Data/Images/Labelled_Liver/412/HCC_MCRC_ICC_", ...
-        string(train_perc),"_", string(test_perc),"/test/");
-    opt.CSVname = strcat("/Users/katyscott/Desktop/HDFS_Project/Data/Labels/Liver/HCC_MCRC_ICC_HDFS_", ...
-        string(train_perc),"_", string(test_perc),"_test_liver.csv");
-    opt.CSV_header = {'File', 'Pat_ID', 'Slice_Num', 'HDFS_Code', 'HDFS_Time'};
+    opt.BinLoc = HDFS_liver_options.TestDestination;
+    opt.CSVname = strcat("../../HDFS/Labels/Liver/HCC_MCRC_ICC_HDFS_", string(train_perc),"_", string(test_perc),"_test_liver.csv");
+    opt.CSV_header = HDFS_liver_options.CSV_header;
     
-    opt.Labels = strcat("/Users/katyscott/Desktop/HDFS_Project/Data/Labels/Liver/HCC_MCRC_ICC_HDFS_liver_", ...
-        string(train_perc),"_", string(test_perc),"_test.xlsx");
+    opt.Labels = HDFS_liver_options.TestLabels;
 
 end

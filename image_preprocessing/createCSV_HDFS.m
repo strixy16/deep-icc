@@ -63,7 +63,7 @@ function createCSV_HDFS(conf_f)
         num_slices = size(labelled_imgfilenames,1);
         
         if num_slices == 0
-            disp(patient_ID)
+            disp(["No slices for: ", patient_ID])
         end
         
         % Put these into a table

@@ -15,18 +15,21 @@ function opt = all_HDFS_tumors
     opt.ImageSize = [221 221];
     
 %     % Location of image files for tumor image set
-%     opt.ImageLoc = "../../Data/All_CT/Tumor/";
+    opt.ImageLoc = "../../Data/All_CT/Tumor/";
     
     % Label spreadsheet for original images
-    opt.Labels = "/Users/katyscott/Desktop/HDFS_Project/Data/Labels/HCC_MCRC_ICC_HDFS_labels.xlsx";
-
+    opt.Labels = "../../HDFS/Labels/HCC_MCRC_ICC_HDFS_labels.xlsx";
+    
     % Location of bin folder to output tumor image slice set at end of
     % new_preprocessMHA
-    opt.BinLoc = "/Users/katyscott/Desktop/HDFS_Project/Data/Images/Labelled_Tumors/221/Original/";
+    opt.BinLoc = strcat("../../Data/Images/Labelled_Tumors/", string(opt.ImageSize(1)), "/Original/");
     
     % Output CSV setup for createCSV
-    opt.CSVname = "/Users/katyscott/Desktop/HDFS_Project/Data/Labels/HCC_MCRC_ICC_HDFS_labelled_tumors.csv";
+    opt.CSVname = "../../HDFS/Labels/Tumor/HCC_MCRC_ICC_HDFS_labelled_tumor.csv";
     opt.CSV_header = {'File', 'Pat_ID', 'Slice_Num', 'HDFS_Code', 'HDFS_Time'};
+    
+    % String to use to find the correct image type in directories
+    opt.search_string = "*umor*";
     
     % Test percentage for train-test split
     opt.TestSize = 0.25;
@@ -36,11 +39,11 @@ function opt = all_HDFS_tumors
     
     
     % Output spreadsheets with patient level train and test labels
-    opt.TrainLabels = strcat("/Users/katyscott/Desktop/HDFS_Project/Data/Labels/HCC_MCRC_ICC_HDFS_", string(train_perc),"_", string(test_perc),"_train.xlsx");
-    opt.TestLabels = strcat("/Users/katyscott/Desktop/HDFS_Project/Data/Labels/HCC_MCRC_ICC_HDFS_", string(train_perc),"_", string(test_perc),"_test.xlsx");
+    opt.TrainLabels = strcat("../../HDFS/Labels/Tumor/HCC_MCRC_ICC_HDFS_tumor_", string(train_perc),"_", string(test_perc),"_train.xlsx");
+    opt.TestLabels = strcat("../../HDFS/Labels/Tumor/HCC_MCRC_ICC_HDFS_tumor_", string(train_perc),"_", string(test_perc),"_test.xlsx");
     
     % Directories for train and test bin images
-    opt.TrainDestination = strcat("/Users/katyscott/Desktop/HDFS_Project/Data/Images/Labelled_Tumors/221/HCC_MCRC_ICC_", string(train_perc),"_", string(test_perc),"/train/");
-    opt.TestDestination = strcat("/Users/katyscott/Desktop/HDFS_Project/Data/Images/Labelled_Tumors/221/HCC_MCRC_ICC_", string(train_perc),"_", string(test_perc),"/test/");
-    
+    opt.TrainDestination = strcat("../../Data/Images/Labelled_Tumors/", string(opt.ImageSize(1)), "/HCC_MCRC_ICC_", string(train_perc),"_", string(test_perc),"/train/");
+    opt.TestDestination = strcat("../../Data/Images/Labelled_Tumors/", string(opt.ImageSize(1)), "/HCC_MCRC_ICC_", string(train_perc),"_", string(test_perc),"/test/");
+     
 end
