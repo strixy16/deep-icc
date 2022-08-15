@@ -73,7 +73,7 @@ for idx in range(len(liver_labels)):
     # So I select from 700 down to the 300 that have liver/tumor pixels with some boundary slices
     if scout_id == "ICC_Radiogen_Add28_":
         del liver_mhd_image
-        tumor_arr = tumor_arr[300:600,:,:]
+        liver_arr = liver_arr[300:600,:,:]
 
     # Initialize total tumor mask
     total_tumor_mask = np.full(liver_arr.shape, False, dtype=bool)
@@ -186,10 +186,10 @@ for idx in range(len(liver_labels)):
     tumor_features_df = pd.concat([tumor_features_df, pd_tumor_result])
 # END patient loop
 
-liver_feature_fname = "/media/katy/Data/ICC/HDFS/FeatureSelection/" + cancer_type + "_HDFS_liver_notumors_features.xlsx"
-liver_features_df.to_excel(liver_feature_fname, index=False)
+# liver_feature_fname = "/media/katy/Data/ICC/HDFS/FeatureSelection/" + cancer_type + "_HDFS_liver_notumors_features.xlsx"
+# liver_features_df.to_excel(liver_feature_fname, index=False)
 
-tumor_feature_fname = "/media/katy/Data/ICC/HDFS/FeatureSelection/" + cancer_type + "_HDFS_indextumor_features.xlsx"
-tumor_features_df.to_excel(tumor_feature_fname, index=False)
+# tumor_feature_fname = "/media/katy/Data/ICC/HDFS/FeatureSelection/" + cancer_type + "_HDFS_indextumor_features.xlsx"
+# tumor_features_df.to_excel(tumor_feature_fname, index=False)
 
 print("Feature selection complete")
