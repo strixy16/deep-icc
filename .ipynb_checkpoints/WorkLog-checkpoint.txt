@@ -1,0 +1,96 @@
+# deep-icc
+Term project for CISC 867 - Winter 2021
+Deep learning for recurrence free survival prediction of ICC patients using image and genetic data.
+
+## Notes
+### February 15th, 2021
+* Currently only have image processing code
+* From_Travis contains old python code developed by Travis Williams with preliminary implementation of deep learning models
+* preprocessMHA is a function version of DataGeneration
+* msk_ and erasumus_ tumours.m are configuration files for the two image sets, used as input for preprocessMHA and createCSV  
+
+### February 16th, 2021
+* Finished working through createCSV, have it working with RFS labels now
+* Moved preprocessing code to its own folder
+* Next step is to figure out how to load images into python
+
+### February 17th, 2021
+* Had meeting with Travis about image loading code
+
+### February 19th, 2021
+* Trying to work on image loading
+* Have started working on it
+* A lot of Travis's code is dependent on using PyTorch, so stuff is changing for me to use Keras
+
+### February 25th, 2021
+* Going to confirm image data is getting loaded in properly
+* Then finish the preprocessing on it
+* Skipping data augmentation for now, will come back to this
+* Starting data splitting into train and test - working in patient_data_split
+
+### February 26th, 2021
+* Moved main over to a jupyter notebook so I don't have to run the whole file every time
+* Going to try train and test split with entire dataset
+* Loading in data was successful, takes ~18 minutes
+* Something's up with train and test split, not getting too many images in each set, doesn't add up to total
+
+### February 28th, 2021
+* Worked on draft writeup
+* Found train and test split bug, was using 70 instead of 0.7 for split value and had wrong index for test_o_pat
+* Have model implemented but it is vastly overtraining right now with only 700 images, going to try with more to see if it's lack of data or a bug
+
+### March 1st, 2021
+* Realized I was working with recurrence codes and not recurrence time labels
+* Changed createCSV so the output has all the labels from RFS Scout included now
+* Going to try to implement the DeepConvSurv model from https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=7822579&casa_token=gVFzncUVfTgAAAAA:hGgPWCTzS2pUnsFG8xEZzZe7lAIupB_Z7SkKDnFJbilFmX1W6Ge5qCipPjiqCynL1lfSs64bVV4 
+* Have the layers of DeepConvSurv set up
+* I'm stuck on the loss function part, going to try to figure it out tomorrow
+
+### March 2nd, 2021
+* Working off of a tutorial I found that does survival analysis on MNIST data
+* Can't get sksurv to import for some reason, so can't get this code to run
+
+### March 3rd, 2021
+* Got sksurv to import, just needed to install cmake in jupyter I guess
+* Generated KM curve with sksurv
+* Trying to use Cox PH and concordance index, following along with polsterl tutorial
+* Added model architecture image to overleaf draft 
+* Worked a bit on overleaf draft - model architecture description
+
+### March 4th, 2021
+* Worked on README for draft submission
+* Finished commenting in patient_data_split.py
+* Worked through Polsterl tutorial again, made more sense today
+* Created my own set of files with the classes and functions from the tutorial 
+
+### March 29th, 2021
+* Working off of Debugging tutorial now
+* Going to do some more in depth data exploration
+* Made plots for patient and slice level  - in powerpoint presentation
+
+### March 30th, 2021
+* Tried loading in all of the images, but was resizing them to 1024 so it took 12 hours
+
+### March 31st, 2021
+* Ran image preprocessing to use images that are 256x256 instead and it loads in 20 minutes instead
+* I ran a linear regression and it sucked but I ran it so that counts
+* Have distribution plots for training and testing splits, looks roughly even which is good
+* Need to finish the tutorial code I was working on at the beginning of the month
+
+### April 1st, 2021
+* Still trying to debug the trainer, something in the CPHLoss call function is the wrong shape
+* So just using the code from the tutorial it works, not sure where my bug is
+* Trying to plug DeepConvSurv model into tutorial code
+
+### April 2-9th
+* Got tutorial code working
+* Seems like images are too much for sksurv CPH to work with
+* Could try removing really tiny tumour images?
+
+### April 13th, 2021
+* Did some more model training
+* Made clean versions of model code and data exploration
+* Data exploration has data distributions, Kaplan Meier survival curve, Linear regression, and attempted Cox Proportional Hazards
+* Main now has the cleaned model code, including the Polsterl model, DCS model, and my own best model
+* Updated README to have data preprocessing section and updated file descriptions and title 
+* Going to run linear regression overnight so I have those stats for report
