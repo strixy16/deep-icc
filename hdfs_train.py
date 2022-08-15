@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from sklearn.model_selection import GroupKFold, KFold
 import torch.optim as optim
 from torchinfo import summary
-from torch.utils.data import DataLoader, SubsetRandomSampler
+from torch.utils.data import DataLoader, SubsetRandomSampler, RandomSampler
 
 from hdfs_data_loading import *
 from hdfs_models import *
@@ -52,14 +52,17 @@ def train_epoch(model, device, dataloader, criterion, optimizer):
     coxLoss = 0.0
     # Initialize c-index counter
     conInd = 0.0
-    # Initialize CPE counter
-    cpe = 0.0
+    # Initialize C-statistic counter
+    cstat = 0.0
 
     # use to confirm dataloader is passed correctly
     # view_images(dataloader)
 
+    # Dataframe to save predictions to export at the end from best fold
+    df_all_pred = pd.DataFrame(columns=['Slice_File_Name', 'Prediction', 'Time', 'Event'])
+
     # Iterate over each batch in the data
-    for X, t, e, _ in dataloader:
+    for X, t, e, fname in dataloader:
         # X = CT image
         # t = time to event
         # e = event indicator
@@ -77,28 +80,31 @@ def train_epoch(model, device, dataloader, criterion, optimizer):
         train_loss = criterion(-risk_pred, t, e, model)
         coxLoss += train_loss.item() * t.size(0)
 
-        # if args.USE_GH:
-        #     train_ci = gh_c_index(risk_pred)
-        #     conInd += train_ci * t.size(0)
-
-        # else:
-        #     train_ci = c_index(risk_pred, t, e)
-        #     conInd += train_ci.item() * t.size(0)
-
         train_ci = c_index(risk_pred, t, e)
         conInd += train_ci.item() * t.size(0)
-        train_cpe = gh_c_index(risk_pred)
-        cpe += train_cpe * t.size(0)
+        train_cstat = uno_c_statistic(t, e, t, e, risk_pred)
+        cstat += train_cstat * t.size(0)
+
+        # Store risk predictions for criterion and c-index calculation at end of batch loop
+        df_batch = pd.DataFrame(list(fname), columns=['Slice_File_Name'])
+        df_batch['Prediction'] = risk_pred.cpu().detach().numpy()
+        df_batch['Time'] = t.cpu().detach().numpy()
+        df_batch['Event'] = e.cpu().detach().numpy()
+
+        df_all_pred = pd.concat([df_all_pred, df_batch], ignore_index=True)
 
         # Updating parameters based on forward pass
         optimizer.zero_grad()
         train_loss.backward()
         optimizer.step()
 
-    return coxLoss, conInd, cpe
+    # Sort predictions so all slices are next to each other for easier human reading/comparison
+    df_all_pred.sort_values(by=['Slice_File_Name'], inplace=True)
+
+    return coxLoss, conInd, cstat, df_all_pred
 
 
-def valid_epoch(model, device, dataloader, criterion):
+def valid_epoch(model, device, valid_dataloader, criterion, train_dataloader=None):
     """
     Validation epoch for training a pytorch model
 
@@ -117,8 +123,11 @@ def valid_epoch(model, device, dataloader, criterion):
     # Dataframe to save predictions to calculate overall instead of average c-index
     df_all_pred = pd.DataFrame(columns=['Slice_File_Name', 'Prediction', 'Time', 'Event'])
 
+    # Dataframe to get time and event labels from training set for Uno c-statistic calculation
+    df_train_labels = pd.DataFrame(columns=['Time', 'Event'])
+
     # Iterate over each batch in the data
-    for X, t, e, fname in dataloader:
+    for X, t, e, fname in valid_dataloader:
         # X = CT image
         # t = time to event
         # e = event indicator
@@ -142,6 +151,13 @@ def valid_epoch(model, device, dataloader, criterion):
         df_all_pred = pd.concat([df_all_pred, df_batch], ignore_index=True)
     # end batch loop
 
+    # Get training dataset labels for use in uno_c_statistic function
+    for _, train_t, train_e, fname in train_dataloader:
+        df_train_batch = pd.DataFrame(list(train_t.cpu().detach().numpy()), columns=['Time'])
+        df_train_batch['Event'] = train_e.cpu().detach().numpy()
+
+        df_train_labels = pd.concat([df_train_labels, df_train_batch], ignore_index=True)
+
     # Sort predictions so all slices are next to each other for easier human reading/comparison
     df_all_pred.sort_values(by=['Slice_File_Name'], inplace=True)
 
@@ -151,15 +167,13 @@ def valid_epoch(model, device, dataloader, criterion):
     all_time = np.array(df_all_pred['Time'], dtype=float)
     all_event = np.array(df_all_pred['Event'], dtype=float)
 
-    # if args.USE_GH:
-    #     # Gonen and Hiller's C-index
-    #     val_all_cind = gh_c_index(all_pred)
-    # else:
-    #     # Harrel's C-index
-    #     val_all_cind = c_index(all_pred, all_time, all_event)
+    train_time = np.array(df_train_labels['Time'], dtype=float)
+    train_event = np.array(df_train_labels['Event'], dtype=float)
 
+    # Harrell's C-index calculation
     val_all_cind = c_index(all_pred, all_time, all_event)
-    val_all_cpe = gh_c_index(all_pred)
+    # Uno's C-statistic calculation
+    val_all_cstat = uno_c_statistic(train_time, train_event, all_time, all_event, all_pred)
     
     # Calculating criterion for entire validation set, not just per batch
     all_pred_T = torch.from_numpy(-all_pred).to(device)
@@ -169,7 +183,7 @@ def valid_epoch(model, device, dataloader, criterion):
 
     val_loss = criterion(all_pred_T, all_time_T, all_event_T, model)
 
-    return val_loss.item(), val_all_cind, val_all_cpe, df_all_pred
+    return val_loss.item(), val_all_cind, val_all_cstat, df_all_pred
 
 
 def kfold_train(data_info_path, data_img_path, out_dir_path, k=None):
@@ -203,10 +217,15 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None):
     # Dictionary to store performance statistics and final model generated by each fold
     foldperf = {}
     # Dataframe to store the final performance values of each fold
-    finalperf = pd.DataFrame(columns=['Fold', 'Final_Train_Loss', 'Final_Train_C-index', 'Final_Train_CPE', 'Final_Valid_Loss', 'Final_Valid_C-index', 'Final_Valid_CPE'])
+    finalperf = pd.DataFrame(columns=['Fold', 'Final_Train_Loss', 'Final_Train_C-index', 'Final_Train_UnoC', 'Final_Valid_Loss', 'Final_Valid_C-index', 'Final_Valid_UnoC'])
 
     # Dataframe to store final validation predictions from each fold to perform final c-index calculation
     all_fold_valid_predictions = pd.DataFrame(columns=['Slice_File_Name', 'Prediction', 'Time', 'Event'])
+
+    # Tracking current best fold to store the predictions from that fold
+    best_fold_valid_loss = 10000
+    best_fold_train_preds = None
+    best_fold_valid_preds = None
 
     # Split data into k-folds and train/validate a model for each fold
     for fold, (train_idx, val_idx) in enumerate(group_kfold.split(hdfs_dataset.img_fname, hdfs_dataset.time_label, groups)):
@@ -241,38 +260,44 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None):
         criterion = NegativeLogLikelihood(device, args.LOSS_WEIGHT_DECAY)
 
         # Initialize dictionary to save evaluation metrics and trained model for each fold
-        history = {'train_loss': [], 'valid_loss': [], 'train_cind': [], 'valid_cind': [], 'train_cpe': [], 'valid_cpe': [], 'model': None}
+        history = {'train_loss': [], 'valid_loss': [], 'train_cind': [], 'valid_cind': [], 'train_unoc': [], 'valid_unoc': [], 'model': None}
         for epoch in range(args.EPOCHS):
             # Train the model
-            train_loss, train_cind, train_cpe = train_epoch(model, device, train_loader, criterion, optimizer)
+            train_loss, train_cind, train_unoc, train_predictions = train_epoch(model, device, train_loader, criterion, optimizer)
             # validate the model
-            valid_loss, valid_cind, valid_cpe, valid_predictions = valid_epoch(model, device, valid_loader, criterion)
+            valid_loss, valid_cind, valid_unoc, valid_predictions = valid_epoch(model, device, valid_loader, criterion, train_loader)
 
             # Get average training metrics for this epoch (loss and cind were calculated per batch)
             train_loss = train_loss / len(train_loader.sampler)
             train_cind = train_cind / len(train_loader.sampler)
-            train_cpe = train_cpe / len(train_loader.sampler)
+            train_unoc = train_unoc / len(train_loader.sampler)
 
             # Display metrics for this epoch
             print("Epoch:{}/{} AVG Training Loss:{:.3f} AVG Validation Loss:{:.3f} "
                   "Training C-index:{:.3f}  Validation C-index:{:.3f} "
-                  "Training CPE:{:.3f}  Validation CPE:{:.3f}".format(epoch + 1,
+                  "Training Uno C:{:.3f}  Validation Uno C:{:.3f}".format(epoch + 1,
                                                                                args.EPOCHS,
                                                                                train_loss,
                                                                                valid_loss,
                                                                                train_cind,
                                                                                valid_cind,
-                                                                               train_cpe,
-                                                                               valid_cpe))
+                                                                               train_unoc,
+                                                                               valid_unoc))
             # Store average metrics for this epoch
             history['train_loss'].append(train_loss)
             history['train_cind'].append(train_cind)
-            history['train_cpe'].append(train_cpe)
+            history['train_unoc'].append(train_unoc)
             # Validation metrics not averaged, but calculated for the entire validation dataset at once
             history['valid_loss'].append(valid_loss)
             history['valid_cind'].append(valid_cind)
-            history['valid_cpe'].append(valid_cpe)
+            history['valid_unoc'].append(valid_unoc)
         # END epoch loop
+
+        final_valid_loss = history['valid_loss'][-1]
+        if final_valid_loss < best_fold_valid_loss:
+            best_fold_valid_loss = final_valid_loss
+            best_fold_train_preds = train_predictions
+            best_fold_valid_preds = valid_predictions
 
         all_fold_valid_predictions = pd.concat([all_fold_valid_predictions, valid_predictions], ignore_index=True)
         
@@ -282,29 +307,17 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None):
         foldperf['fold{}'.format(fold+1)] = history
 
         # Get metrics from final epoch
-        finalperf.loc[len(finalperf.index)] = [fold+1, train_loss, train_cind, train_cpe, valid_loss, valid_cind, valid_cpe]
+        finalperf.loc[len(finalperf.index)] = [fold+1, train_loss, train_cind, train_unoc, valid_loss, valid_cind, valid_unoc]
 
     # END k-fold loop
     finalperf = finalperf.astype({'Fold': int})
-
-    # Final c-index calculation using validation predictions from all-folds 
-    # if args.USE_GH:
-    #     # Calculating c-index for entire testing set, not just per batch 
-    #     all_pred = np.array(all_fold_valid_predictions['Prediction'])
-    #     val_all_cind = gh_c_index(all_pred)
-    # else:
-    #     # Calculating c-index for entire testing set, not just per batch 
-    #     all_pred = np.array(all_fold_valid_predictions['Prediction'])
-    #     all_time = np.array(all_fold_valid_predictions['Time'])
-    #     all_event = np.array(all_fold_valid_predictions['Event'])
-    #     val_all_cind = c_index(all_pred, all_time, all_event)
 
      # Calculating c-index for entire testing set, not just per batch 
     all_pred = np.array(all_fold_valid_predictions['Prediction'])
     all_time = np.array(all_fold_valid_predictions['Time'])
     all_event = np.array(all_fold_valid_predictions['Event'])
     val_all_cind = c_index(all_pred, all_time, all_event)
-    val_all_cpe = gh_c_index(all_pred)
+    val_all_unoc = uno_c_statistic(all_time, all_event, all_time, all_event, all_pred)
 
 
     # Setting up evaluation plots showing loss and c-index for each fold across all epochs
@@ -313,26 +326,26 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None):
     ax[0, 1].set_title('Validation loss')
     ax[1, 0].set_title('Training c-index')
     ax[1, 1].set_title('Validation c-index')
-    ax[2, 0].set_title('Training CPE')
-    ax[2, 1].set_title('Validation CPE')
+    ax[2, 0].set_title('Training Uno C-statistic')
+    ax[2, 1].set_title('Validation Uno C-statistic')
     tloss_plot = plt.subplot(3, 2, 1)
     valloss_plot = plt.subplot(3, 2, 2)
     tcind_plot = plt.subplot(3, 2, 3)
     valcind_plot = plt.subplot(3, 2, 4)
-    tcpe_plot = plt.subplot(3, 2, 5)
-    valcpe_plot = plt.subplot(3, 2, 6)
+    tunoc_plot = plt.subplot(3, 2, 5)
+    valunoc_plot = plt.subplot(3, 2, 6)
 
 
     # Calculate average performance of each fold (finding mean from all epochs)
-    trainl_f, validl_f, trainc_f, validc_f, traincpe_f, validcpe_f = [], [], [], [], [], []
+    trainl_f, validl_f, trainc_f, validc_f, trainunoc_f, validunoc_f = [], [], [], [], [], []
     for f in range(1,args.K+1):
         # Plotting metrics across epochs of fold f
         tloss_plot.plot(foldperf['fold{}'.format(f)]['train_loss'], label='Fold {}'.format(f))
         valloss_plot.plot(foldperf['fold{}'.format(f)]['valid_loss'], label='Fold {}'.format(f))
         tcind_plot.plot(foldperf['fold{}'.format(f)]['train_cind'], label='Fold {}'.format(f))
         valcind_plot.plot(foldperf['fold{}'.format(f)]['valid_cind'], label='Fold {}'.format(f))
-        tcpe_plot.plot(foldperf['fold{}'.format(f)]['train_cpe'], label='Fold {}'.format(f))
-        valcpe_plot.plot(foldperf['fold{}'.format(f)]['valid_cpe'], label='Fold {}'.format(f))
+        tunoc_plot.plot(foldperf['fold{}'.format(f)]['train_unoc'], label='Fold {}'.format(f))
+        valunoc_plot.plot(foldperf['fold{}'.format(f)]['valid_unoc'], label='Fold {}'.format(f))
 
         # Average Train loss for fold f
         trainl_f.append(np.mean(foldperf['fold{}'.format(f)]['train_loss']))
@@ -342,14 +355,14 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None):
         trainc_f.append(np.mean(foldperf['fold{}'.format(f)]['train_cind']))
         # Average validation c-index for fold f
         validc_f.append(np.mean(foldperf['fold{}'.format(f)]['valid_cind']))
-        # Average training CPE for fold f
-        traincpe_f.append(np.mean(foldperf['fold{}'.format(f)]['train_cpe']))
-        # Average validation CPE for fold f
-        validcpe_f.append(np.mean(foldperf['fold{}'.format(f)]['valid_cpe']))
+        # Average training Uno C-statistic for fold f
+        trainunoc_f.append(np.mean(foldperf['fold{}'.format(f)]['train_unoc']))
+        # Average validation Uno C-statistic for fold f
+        validunoc_f.append(np.mean(foldperf['fold{}'.format(f)]['valid_unoc']))
 
     # Setting up legend for evaluation plots
     labels = ["Fold 1", "Fold 2", "Fold 3", "Fold 4", "Fold 5"]
-    fig.legend([tloss_plot, valloss_plot, tcind_plot, valcind_plot, tcpe_plot, valcpe_plot], labels=labels, loc="upper right")
+    fig.legend([tloss_plot, valloss_plot, tcind_plot, valcind_plot, tunoc_plot, valunoc_plot], labels=labels, loc="upper right")
     # Setting overall title
     fig.suptitle("Evaluation metrics for k-fold cross validation")
 
@@ -364,16 +377,16 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None):
     # Get index of fold with best c-index
     # best_fold = finalperf['Final_Valid_C-index'].idxmax() + 1
     
-    # Choose fold with highest valid CPE as best
-    best_fold = finalperf['Final_Valid_CPE'].idxmax() + 1
+    # Choose fold with highest valid Uno C-statistic as best
+    best_fold = finalperf['Final_Valid_Loss'].idxmin() + 1
     # Get model from the best fold
     best_model = foldperf['fold{}'.format(best_fold)]['model']
     tr_final_loss = foldperf['fold{}'.format(best_fold)]['train_loss'][-1]
     tr_final_cind = foldperf['fold{}'.format(best_fold)]['train_cind'][-1]
-    tr_final_cpe = foldperf['fold{}'.format(best_fold)]['train_cpe'][-1]
+    tr_final_unoc = foldperf['fold{}'.format(best_fold)]['train_unoc'][-1]
     val_final_loss = foldperf['fold{}'.format(best_fold)]['valid_loss'][-1]
     val_final_cind = foldperf['fold{}'.format(best_fold)]['valid_cind'][-1]
-    val_final_cpe = foldperf['fold{}'.format(best_fold)]['valid_cpe'][-1]
+    val_final_unoc = foldperf['fold{}'.format(best_fold)]['valid_unoc'][-1]
     
 
     if args.DEBUG:
@@ -385,36 +398,36 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None):
         print('Averaged Final Performance of all folds:\n')
         print("Average Final Training Loss: {:.3f} \tAverage Final Validation Loss: {:.3f} \n"
             "Average Final Training C-Index: {:.3f} \tAverage Final Validation C-Index: {:.3f}\n"
-            "Average Final Training CPE: {:.3f} \tAverage Final Validation CPE: {:.3f}\n".format(finalperf['Final_Train_Loss'].mean(),
+            "Average Final Training Uno C-stat: {:.3f} \tAverage Final Validation Uno C-stat: {:.3f}\n".format(finalperf['Final_Train_Loss'].mean(),
                                                                                                         finalperf['Final_Valid_Loss'].mean(),
                                                                                                         finalperf['Final_Train_C-index'].mean(),
                                                                                                         finalperf['Final_Valid_C-index'].mean(),
-                                                                                                        finalperf['Final_Train_CPE'].mean(),
-                                                                                                        finalperf['Final_Valid_CPE'].mean()))
+                                                                                                        finalperf['Final_Train_UnoC'].mean(),
+                                                                                                        finalperf['Final_Valid_UnoC'].mean()))
         print('Averaged Overall Performance (across epochs and folds):')
         # Print the average loss and c-index for training and validation across all folds (Model performance)
         print("Average Training Loss: {:.3f} \tAverage Validation Loss: {:.3f} \n"
             "Average Training C-Index: {:.3f} \tAverage Validation C-Index: {:.3f} \n"
-            "Average Training CPE: {:.3f} \tAverage Validation CPE: {:.3f}\n".format(np.mean(trainl_f),
+            "Average Training Uno C-stat: {:.3f} \tAverage Validation Uno C-stat: {:.3f}\n".format(np.mean(trainl_f),
                                                                                     np.mean(validl_f),
                                                                                     np.mean(trainc_f),
                                                                                     np.mean(validc_f),
-                                                                                    np.mean(traincpe_f),
-                                                                                    np.mean(validcpe_f)))
+                                                                                    np.mean(trainunoc_f),
+                                                                                    np.mean(validunoc_f)))
 
         print("Validation C-index for predictions from all fold models: {:.3f}\n".format(val_all_cind))
-        print("Validation CPE for predictions from all fold models: {:.3f}\n".format(val_all_cpe))
+        print("Validation Uno C-stat for predictions from all fold models: {:.3f}\n".format(val_all_unoc))
 
         # Print the best fold's final results
         print("Performance of best fold, {}:\n".format(best_fold))
         print("Best Training Loss: {:.3f} \tBest Validation Loss: {:.3f} \n"
               "Best Training C-index: {:.3f} \tBest Validation C-index: {:.3f}\n"
-              "Best Training CPE: {:.3f} \tBest Validation CPE: {:.3f}\n".format(tr_final_loss,
+              "Best Training Uno C-stat: {:.3f} \tBest Validation Uno C-stat: {:.3f}\n".format(tr_final_loss,
                                                                                 val_final_loss,
                                                                                 tr_final_cind,
                                                                                 val_final_cind,
-                                                                                tr_final_cpe,
-                                                                                val_final_cpe))
+                                                                                tr_final_unoc,
+                                                                                val_final_unoc))
 
     if not args.DEBUG:
         # Save performance for this run
@@ -427,32 +440,34 @@ def kfold_train(data_info_path, data_img_path, out_dir_path, k=None):
                 out_file.write('Averaged Final Performance of all folds:\n')
                 out_file.write("Average Final Training Loss: {:.3f} \tAverage Final Validation Loss: {:.3f} \n"
                                "Average Final Training C-Index: {:.3f} \tAverage Final Validation C-Index: {:.3f}\n"
-                               "Average Final Training CPE: {:.3f} \tAverage Final Validation CPE: {:.3f}\n".format(
+                               "Average Final Training Uno C-stat: {:.3f} \tAverage Final Validation Uno C-stat: {:.3f}\n".format(
                                    finalperf['Final_Train_Loss'].mean(), finalperf['Final_Valid_Loss'].mean(),
                                     finalperf['Final_Train_C-index'].mean(), finalperf['Final_Valid_C-index'].mean(),
-                                    finalperf['Final_Train_CPE'].mean(), finalperf['Final_Valid_CPE'].mean()))
+                                    finalperf['Final_Train_UnoC'].mean(), finalperf['Final_Valid_UnoC'].mean()))
                 out_file.write('\n')
                 out_file.write('Averaged Overall Performance (across epochs and folds):\n')
                 out_file.write("Average Training Loss: {:.3f} \tAverage Validation Loss: {:.3f}\n"
                                "Average Training C-Index: {:.3f} \tAverage Validation C-Index: {:.3f}\n"
-                               "Average Training CPE: {:.3f} \tAverage Validation CPE: {:.3f}\n".format(
-                                   np.mean(trainl_f), np.mean(validl_f), np.mean(trainc_f), np.mean(validc_f), np.mean(traincpe_f), np.mean(validcpe_f)))
+                               "Average Training Uno C-stat: {:.3f} \tAverage Validation Uno C-stat: {:.3f}\n".format(
+                                   np.mean(trainl_f), np.mean(validl_f), np.mean(trainc_f), np.mean(validc_f), np.mean(trainunoc_f), np.mean(validunoc_f)))
                 out_file.write('\n')
                 out_file.write("Validation C-index for predictions from all fold models: {:.3f}".format(val_all_cind))
-                out_file.write("\nValidation CPE for predictions from all fold models: {:.3f}\n".format(val_all_cpe))
+                out_file.write("\nValidation Uno C-stat for predictions from all fold models: {:.3f}\n".format(val_all_unoc))
                 out_file.write('\n')
                 out_file.write("Performance of best fold, {}:\n".format(best_fold))
                 out_file.write("Best Training Loss: {:.3f} \tBest Validation Loss: {:.3f} \n"
                             "Best Training C-index: {:.3f} \tBest Validation C-index: {:.3f} \n"
-                            "Best Training CPE: {:.3f} \tBest Validation CPE: {:.3f} \n".format(
-                                tr_final_loss, val_final_loss, tr_final_cind, val_final_cind, tr_final_cpe, val_final_cpe))
+                            "Best Training Uno C-stat: {:.3f} \tBest Validation Uno C-stat: {:.3f} \n".format(
+                                tr_final_loss, val_final_loss, tr_final_cind, val_final_cind, tr_final_unoc, val_final_unoc))
                 out_file.write('\n')
 
+
+
     # Return model, loss, and c-ind from the best fold
-    return best_model, tr_final_loss, tr_final_cind, tr_final_cpe, val_final_loss, val_final_cind, val_final_cpe
+    return best_model, best_fold_train_preds, best_fold_valid_preds, tr_final_loss, tr_final_cind, tr_final_unoc, val_final_loss, val_final_cind, val_final_unoc
 
 
-def test_model(model, data_info_path, data_img_path, device):
+def test_model(model, test_data_info_path, test_data_img_path, train_data_info_path, train_data_img_path, device, train_predictions, conf_int_count=5):
     """
     Function to test a pytorch model
 
@@ -468,87 +483,89 @@ def test_model(model, data_info_path, data_img_path, device):
         df_all_pred: pandas Dataframe, table of each slice's prediction, time and event labels
     """
     # Create Dataset object for test data
-    test_dataset = HDFSTumorDataset(data_info_path, data_img_path, args.ORIG_IMG_DIM, args.TRANSFORM_LIST)
+    test_dataset = HDFSTumorDataset(test_data_info_path, test_data_img_path, args.ORIG_IMG_DIM, args.TRANSFORM_LIST)
     # Set up DataLoader for test data
     test_loader = DataLoader(test_dataset, batch_size=args.BATCH_SIZE, shuffle=True, drop_last=False)
+
+    # Create Dataset object for train data
+    train_dataset = HDFSTumorDataset(train_data_info_path, train_data_img_path, args.ORIG_IMG_DIM, args.TRANSFORM_LIST)
+    train_loader = DataLoader(train_dataset, batch_size=args.BATCH_SIZE, shuffle=True, drop_last=False)
 
     # Put model on GPU if available
     model.to(device)
 
+
     # Setting loss function 
     criterion = NegativeLogLikelihood(device)
 
-    
-
-    # Function to run validation on a deep learning model
-    # Set model to evaluation so weights are not updated
-    # model.eval()
-    # # Initialize loss counter
-    # coxLoss = 0.0
-
-    # # Dataframe to save predictions for each slice
-    # df_all_pred = pd.DataFrame(columns=['Slice_File_Name', 'Prediction', 'Time', 'Event'])
-
-    # # Iterate over each batch in the data
-    # # Batches used here because data is too large to load all at once
-    # for X, t, e, fname in test_loader:
-    #     # X = CT image
-    #     # t = time to event
-    #     # e = event indicator
-
-    #     # Convert all data to floats and store on CPU or GPU (if available)
-    #     X, t, e = X.float().to(device), t.float().to(device), e.float().to(device)
-
-    #     # Pass data forward through trained model
-    #     risk_pred = model(X)
-
-    #     # Calculate loss and evaluation metrics
-    #     # test_loss = criterion(-risk_pred, t, e, model)
-    #     # coxLoss += test_loss.item() * t.size(0)
-
-    #     # Saving model prediction to calculate evaluation metrics on entire dataset at once
-    #     df_batch = pd.DataFrame(list(fname), columns=['Slice_File_Name'])
-    #     df_batch['Prediction'] = risk_pred.cpu().detach().numpy()
-    #     df_batch['Time'] = t.cpu().detach().numpy()
-    #     df_batch['Event'] = e.cpu().detach().numpy()
-
-    #     df_all_pred = pd.concat([df_all_pred, df_batch], ignore_index=True)
-    # # end batch loop
-    
-    # # Sort predictions so all of patients slices are next to each other
-    # df_all_pred.sort_values(by=['Slice_File_Name'], inplace=True)
-
-    # # Calculating c-index for entire testing set, not just per batch 
-    # all_pred = np.array(df_all_pred['Prediction'], dtype=float)
-    # all_time = np.array(df_all_pred['Time'], dtype=float)
-    # all_event = np.array(df_all_pred['Event'], dtype=float)
-
-    # if args.USE_GH:
-    #     # Gonen and Hiller c-index
-    #     test_cind = gh_c_index(all_pred)
-    # else:
-    #     # Harrel's c-index
-    #     test_cind = c_index(all_pred, all_time, all_event)
-
-    # # Calculating criterion for entire validation set, not just per batch
-    # all_pred_T = torch.from_numpy(-all_pred).to(device)
-    # # Time gets transposed in the criterion calculation, so needs to be 2D (Second dimension is just 1)
-    # all_time_T = torch.reshape(torch.from_numpy(all_time), (all_time.shape[0], 1)).to(device)
-    # all_event_T = torch.from_numpy(all_event).to(device)
-
-    # Get average metrics for test epoch
-    # test_loss = criterion(all_pred_T, all_time_T, all_event_T, model)
-    # test_loss = test_loss.item()
-
-    test_loss, test_cind, test_cpe, test_predictions = valid_epoch(model, device, test_loader, criterion)
+    test_loss, test_cind, test_unoc, test_predictions = valid_epoch(model, device, test_loader, criterion, train_loader)
 
     # Print evaluation metrics
     print("Testing Results:")
-    print("Testing loss: {:.3f}\tTesting c-index: {:.3f}\tTesting CPE: {:.3f}".format(test_loss, test_cind, test_cpe))
+    print("Testing loss: {:.3f}\tTesting c-index: {:.3f}\tTesting Uno C-stat: {:.3f}".format(test_loss, test_cind, test_unoc))
 
-    # TODO: change test_loss calculation to match what's done in valid_epoch/just call valid_epoch
+    # Confidence intervals
+    test_info = pd.read_csv(test_data_info_path)
+    num_samples = test_info.shape[0]
+    df_unoc_confidence = pd.DataFrame(columns=['UnoC'])
+    np_train_time = np.array(train_predictions['Time'], dtype=float)
+    np_train_event = np.array(train_predictions['Event'], dtype=float)
 
-    return test_loss, test_cind, test_cpe, test_predictions
+    for x in range(conf_int_count):
+        # Set up random sampler
+        samp_test_dataset = RandomSampler(test_dataset, replacement=True, num_samples=num_samples)
+
+        samp_loader = DataLoader(test_dataset, batch_size=args.BATCH_SIZE, sampler=samp_test_dataset, drop_last=False)
+
+        samp_loss, samp_all_cind, _, samp_predictions = valid_epoch(model, device, samp_loader, criterion, train_loader)
+
+        np_samp_time = np.array(samp_predictions['Time'], dtype=float)
+        np_samp_event = np.array(samp_predictions['Event'], dtype=float)
+        np_samp_predictions = np.array(samp_predictions['Prediction'], dtype=float)
+
+        samp_test_cstat = uno_c_statistic(np_train_time, np_train_event, np_samp_time, np_samp_event, np_samp_predictions)
+
+        df_unoc_confidence.loc[x] = samp_test_cstat
+
+    return test_loss, test_cind, test_unoc, test_predictions, df_unoc_confidence
+
+
+# Confidence check moved to test_model
+# def confidence_check(train_predictions, test_info_path, test_img_path, model, device):
+
+#     model.to(device)
+#     criterion = NegativeLogLikelihood(device)
+
+#     # Load test label file to get number of test patients
+#     test_info = pd.read_csv(test_info_path)
+#     num_samples = test_info.shape[0]
+
+#     # Create Dataset object for test data
+#     test_dataset = HDFSTumorDataset(test_info_path, test_img_path, args.ORIG_IMG_DIM, args.TRANSFORM_LIST)
+    
+#     df_unoc_confidence = pd.DataFrame(columns=['UnoC'])
+
+#     np_train_time = np.array(train_predictions['Time'], dtype=float)
+#     np_train_event = np.array(train_predictions['Event'], dtype=float)
+
+#     for x in range(5):
+#         # Setting up random sampler 
+#         samp_test_dataset = RandomSampler(test_dataset, replacement=True, num_samples=num_samples)
+
+#         # Set up DataLoader for test data
+#         test_loader = DataLoader(test_dataset, batch_size=args.BATCH_SIZE, sampler=samp_test_dataset, drop_last=False)
+
+#         test_loss, test_all_cind, _, test_predictions = valid_epoch(model, device, test_loader, criterion)
+
+#         np_test_time = np.array(test_predictions['Time'], dtype=float)
+#         np_test_event = np.array(test_predictions['Event'], dtype=float)
+#         np_test_predictions = np.array(test_predictions['Prediction'], dtype=float)
+
+#         samp_test_cstat = uno_c_statistic(np_train_time, np_train_event, np_test_time, np_test_event, np_test_predictions)
+
+#         df_unoc_confidence.loc[x] = samp_test_cstat
+
+#     return df_unoc_confidence
 
 
 def train_main():
@@ -578,11 +595,11 @@ def train_main():
     test_img_path = os.path.join(args.DATA_DIR, args.IMG_LOC_PATH, 'test/')
 
     # Train model with k-fold cross-validation
-    best_model, train_loss, train_cind, train_cpe, valid_loss, valid_cind, valid_cpe = kfold_train(train_info_path, train_img_path, out_path, k=args.K)
+    best_model, train_predictions, valid_predictions, train_loss, train_cind, train_cpe, valid_loss, valid_cind, valid_cpe = kfold_train(train_info_path, train_img_path, out_path, k=args.K)
     # torch.cuda.empty_cache()
 
     # Run the trained model through testing
-    test_loss, test_cind, test_cpe, test_predictions = test_model(best_model, test_info_path, test_img_path, device)
+    test_loss, test_cind, test_unoc, test_predictions, df_unoc_confidence = test_model(best_model, test_info_path, test_img_path, train_info_path, train_img_path, device, train_predictions, conf_int_count=1000)
 
     # Output model shape/setup for reference
     model_stats = summary(best_model, input_size=(args.BATCH_SIZE, 1, args.ORIG_IMG_DIM, args.ORIG_IMG_DIM))
@@ -592,7 +609,7 @@ def train_main():
         # Add testing results to results.txt file made in kfold_train
         with open(os.path.join(out_path, 'k_fold_results.txt'), 'a') as kfold_file:
             kfold_file.write("Testing Results of Best Fold: \n")
-            kfold_file.write("Testing Loss: {:.3f}\tTesting C-Index: {:.3f}\tTesting CPE: {:.3f}\n\n".format(test_loss, test_cind, test_cpe))
+            kfold_file.write("Testing Loss: {:.3f}\tTesting C-Index: {:.3f}\tTesting Uno C-stat: {:.3f}\n\n".format(test_loss, test_cind, test_unoc))
 
         # Save summary of model
         with open(os.path.join(out_path, 'model_summary.txt'), 'w') as out_file:
@@ -602,10 +619,22 @@ def train_main():
         model_file_name = 'k_cross_' + args.MODEL_NAME + '.pt'
         torch.save(best_model, os.path.join(out_path, model_file_name))
 
-        # Saving predictions made for test data
+        # Saving predictions made for all data sets
+        train_predictions.to_csv(os.path.join(out_path, 'train_predictions.csv'), index=False)
+        valid_predictions.to_csv(os.path.join(out_path, 'valid_predictions.csv'), index=False)
         test_predictions.to_csv(os.path.join(out_path, 'test_predictions.csv'), index=False)
 
+        # Save confidence interval runs
+        df_unoc_confidence.to_csv(os.path.join(out_path, 'CNN_unoC_confidence_intervals.csv'), index=False)
+
     print("Completed model training/testing")
+
+    if args.CONFIDENCE_CHECK == True:
+        df_unoc_confidence = confidence_check(train_predictions, test_info_path, test_img_path, best_model, device)
+
+        if not args.DEBUG:
+            df_unoc_confidence.to_csv(os.path.join(out_path, 'CNN_unoC_confidence.csv'), index=False)
+
 
 
 def load_main():
@@ -626,15 +655,20 @@ def load_main():
             with contextlib.redirect_stdout(f):
                 help(args)
 
-    # Set up loading paths for labels and image data
+    # Set up loading paths for testing labels and image data
     test_info_path = os.path.join(args.DATA_DIR, args.TEST_LABEL_FILE)
     test_img_path = os.path.join(args.DATA_DIR, args.IMG_LOC_PATH, 'test/')
+
+    # Set up loading paths for training labels and image data
+    train_info_path = os.path.join(args.DATA_DIR, args.TRAIN_LABEL_FILE)
+    train_img_path = os.path.join(args.DATA_DIR, args.IMG_LOC_PATH, 'train/')
+
 
     # Load the pre-trained model
     load_model = torch.load(args.LOAD_MODEL_PATH)
 
     # Run testing data through the pre-trained model
-    test_loss, test_cind, test_predictions = test_model(load_model, test_info_path, test_img_path, device)
+    test_loss, test_cind, test_unoc, test_predictions = test_model(load_model, test_info_path, test_img_path, train_info_path, train_img_path, device)
 
     if not args.DEBUG:
         # Save testing results
