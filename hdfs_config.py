@@ -41,7 +41,7 @@ OPTIM = 'Adam'
 BATCH_SIZE = 32
 
 # Number of training epochs to run
-EPOCHS = 20
+EPOCHS = 35
 
 # Initial learning rate
 LR = 0.0003
@@ -62,8 +62,11 @@ TRAIN_MODE = True
 LOAD_MODE = False
 
 # If just testing with existing model, put path to the model you wish to load here
-LOAD_MODEL_PATH = '/Data/Output/HDFSModel2/2022_02_03_2048_train/k_cross_HDFSModel2.pt'
+LOAD_MODEL_PATH = '/Data/Output/HDFSModel2/Tumor/2022_05_07_1745_train/k_cross_HDFSModel2.pt'
 
 # Debugging
 # If true, prevents output from saving
-DEBUG = True
+DEBUG = False
+
+# For running bootstrapping test to check confidence levels for test set
+CONFIDENCE_CHECK = False
