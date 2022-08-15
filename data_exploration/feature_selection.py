@@ -29,6 +29,7 @@ liver_files_mhd.sort()
 print("Tumor file count: ", len(tumor_files_mhd))
 print("Liver file count: ", len(liver_files_mhd))
 
+# Set which cancer type you want the labels for
 cancer_type = "HCC_MCRC_ICC"
 lbl_file_name = "/media/katy/Data/ICC/HDFS/Labels/" + cancer_type + "_HDFS_labels.xlsx"
 liver_labels = pd.read_excel(lbl_file_name)
@@ -36,15 +37,15 @@ liver_labels = pd.read_excel(lbl_file_name)
 # Dataframe to store features for each patient
 liver_features_df = pd.DataFrame(columns=['ScoutID'])
 tumor_features_df = pd.DataFrame(columns=['ScoutID'])
-# liver_features_df['ScoutID'] = liver_labels['ScoutID']
-# tumor_features_df['ScoutID'] = liver_labels['ScoutID']
 
+# Loop to perform feature extraction for each image in label set
 for idx in range(len(liver_labels)):
     scoutid = liver_labels['ScoutID'][idx]
+    # Add underscore to end of label so correct label is selected (otherwise pat2 gets pat20, pat21, etc.)
     scout_id = scoutid + "_"
     print("Patient ", idx,": ", scout_id)
-    ## DATA LOADING ##
 
+    ## DATA LOADING ##
     tumor_files = [f for f in tumor_files_mhd if scout_id in f]
     print(len(tumor_files))
     liver_file = [f for f in liver_files_mhd if scout_id in f]
@@ -59,9 +60,6 @@ for idx in range(len(liver_labels)):
     # Loading patient idx image
     # tumor_file = tumor_file[0]
     liver_file = liver_file[0]
-
-    # print("Tumor file: ", tumor_file)
-    # print("Liver file: ", liver_file)
 
     # Load liver first to get size for initializing total tumor mask
     liver_img_path = os.path.join(liver_dir, liver_file)
@@ -102,21 +100,33 @@ for idx in range(len(liver_labels)):
     tumor_mask = total_tumor_mask.astype(float)
     liver_mask = liver_mask.astype(float)
 
+    # TODO: Make this an if statement or just add the liver to the next section so there's 3 output files
+    # NOTE: If you want feature extraction for just liver, use this code
+    # liver_image = sitk.GetImageFromArray(liver_arr)
+    # liver_mask = sitk.GetImageFromArray(liver_mask)
+
+    # NOTE: If you want feature extraction for the liver without tumor pixels, use this code ()
     # Remove tumor from liver image and mask
     # Set tumor to 0s in tumor mask and remove from liver mask
     notumor_livermask = liver_mask * (1 - tumor_mask)
     # Set tumor to 0s in tumor mask, use to set to 0 in liver image, add -1000 to tumor to set as background
     notumor_liver = liver_arr * (1 - tumor_mask) + (tumor_mask * -1000)
 
+
+
     # Convert no-tumor liver image and mask back to sitk.Image type for feature extraction
     liver_image = sitk.GetImageFromArray(notumor_liver)
     liver_mask = sitk.GetImageFromArray(notumor_livermask)
+
+
     # Set pixels to int type for pyradiomics functions
     liver_image = sitk.Cast(liver_image, sitk.sitkInt64)
     liver_mask = sitk.Cast(liver_mask, sitk.sitkInt64)
 
+    # Convert tumor image and mask back to sitk.Image type for feature extraction
     tumor_image = sitk.GetImageFromArray(tumor_arr)
     tumor_mask = sitk.GetImageFromArray(tumor_mask)
+    # Set pixels to int type for pyradiomics functions
     tumor_image = sitk.Cast(tumor_image, sitk.sitkInt64)
     tumor_mask = sitk.Cast(tumor_mask, sitk.sitkInt64)
 
@@ -149,14 +159,17 @@ for idx in range(len(liver_labels)):
     liver_croppedImage, liver_croppedMask = imageoperations.cropToTumorMask(liver_image, liver_mask, liver_bb)
     tumor_croppedImage, tumor_croppedMask = imageoperations.cropToTumorMask(tumor_image, tumor_mask, tumor_bb)
 
-    # Calculate First Order features
+    # Calculate First Order features for liver image
     liver_fof = firstorder.RadiomicsFirstOrder(liver_croppedImage, liver_croppedMask, **settings)
     liver_fof.enableAllFeatures()
+    # Calculate NGTDM features for liver image
     liver_ngtdm = ngtdm.RadiomicsNGTDM(liver_croppedImage, liver_croppedMask, **settings)
     liver_ngtdm.enableAllFeatures()
+    # Calculate Shape features for liver image
     liver_shape = shape.RadiomicsShape(liver_croppedImage, liver_croppedMask, **settings)
     liver_shape.enableAllFeatures()
 
+    # Calculate First Order, NGTDM, Shape features for tumor image
     tumor_fof = firstorder.RadiomicsFirstOrder(tumor_croppedImage, tumor_croppedMask, **settings)
     tumor_fof.enableAllFeatures()
     tumor_ngtdm = ngtdm.RadiomicsNGTDM(tumor_croppedImage, tumor_croppedMask, **settings)
@@ -174,6 +187,7 @@ for idx in range(len(liver_labels)):
     pd_liver_result = pd.DataFrame([liver_fof_result | liver_ngtdm_result | liver_shape_result])
     pd_tumor_result = pd.DataFrame([tumor_fof_result | tumor_ngtdm_result | tumor_shape_result])
 
+    # Store features in dataframe for export
     pd_liver_result.insert(0, 'ScoutID', scoutid)
     pd_tumor_result.insert(0, 'ScoutID', scoutid)
 
@@ -186,10 +200,12 @@ for idx in range(len(liver_labels)):
     tumor_features_df = pd.concat([tumor_features_df, pd_tumor_result])
 # END patient loop
 
-# liver_feature_fname = "/media/katy/Data/ICC/HDFS/FeatureSelection/" + cancer_type + "_HDFS_liver_notumors_features.xlsx"
-# liver_features_df.to_excel(liver_feature_fname, index=False)
+# Save out liver features to spreadsheet
+liver_feature_fname = "/media/katy/Data/ICC/HDFS/FeatureSelection/" + cancer_type + "_HDFS_liver_notumors_features.xlsx"
+liver_features_df.to_excel(liver_feature_fname, index=False)
 
-# tumor_feature_fname = "/media/katy/Data/ICC/HDFS/FeatureSelection/" + cancer_type + "_HDFS_indextumor_features.xlsx"
-# tumor_features_df.to_excel(tumor_feature_fname, index=False)
+# Save out tumor features to spreadsheet
+tumor_feature_fname = "/media/katy/Data/ICC/HDFS/FeatureSelection/" + cancer_type + "_HDFS_indextumor_features.xlsx"
+tumor_features_df.to_excel(tumor_feature_fname, index=False)
 
 print("Feature selection complete")
