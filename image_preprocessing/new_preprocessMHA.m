@@ -89,13 +89,6 @@ function new_preprocessMHA(conf_f)
         tumor_marker = sum(tumor_marker,1);
         tumor_marker = reshape(tumor_marker, [size(tumor_marker,3),1]);
         
-        % Finding slice indices that have tumor pixels
-%         tumor_slice_ind = tumor_marker > 0;
-%         tumor_slice_ind = find(tumor_marker);
-
-        % Selecting out tumor slices
-%         tumor_slices = vol(:,:,tumor_slice_ind);
-        
         % Storing only tumor slices for cropping
         procImages{currFile} = find(tumor_marker);
         
