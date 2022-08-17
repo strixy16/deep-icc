@@ -1,6 +1,6 @@
 function opt = all_HDFS_tumors
-% Description: Configuration file for createCSV and train_test_split_HDFS for 
-% all labelled tumor images (ICC, HCC, MCRC)
+% Description: Configuration file for main_preprocessing and main_train_test_script 
+% for all labelled tumor images (ICC, HCC, MCRC)
 
 % OUTPUT: opt - struct containing variables defined here
 

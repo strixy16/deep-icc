@@ -1,6 +1,6 @@
 function opt = all_HDFS_liver
-% Description: Configuration file for new_preprocessMHA and createCSV for 
-% all labelled liver images (ICC, HCC, MCRC)
+% Description: Configuration file for main_preprocessing and 
+% main_train_test_script for all labelled liver images (ICC, HCC, MCRC)
 
 % OUTPUT: opt - struct containing variables defined here
 

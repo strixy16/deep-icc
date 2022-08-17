@@ -1,4 +1,4 @@
-% Main script to run to set up train and test
+% Main script to run to set up train and test sets
 
 main_config = all_HDFS_tumors;
 
