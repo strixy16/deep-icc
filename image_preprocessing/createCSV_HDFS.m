@@ -69,20 +69,20 @@ function createCSV_HDFS(conf_f)
         % Put these into a table
         % Copy the RFS and RFS Code for each row that has this patient ID
         
-        % Get the RFS labels for the current patient
-        patien_HDFS_Code = img_labels.HDFS_Code(label_idx);
+        % Get the HDFS labels for the current patient (event and time)
+        patient_HDFS_Code = img_labels.HDFS_Code(label_idx);
         patient_HFS_Time = img_labels.HDFS_Time(label_idx);
         
         % Create cell arrays with the labels repeated for each slice
         slices_pat_num = num2cell(ones(num_slices,1) * label_idx);
         slices_slice_num = num2cell((1:num_slices)');
-        slices_RFS_Code = num2cell(round(ones(num_slices,1) * patien_HDFS_Code, 1));
-        slices_RFS = num2cell(round(ones(num_slices,1) * patient_HFS_Time, 1));
+        slices_HDFS_Code = num2cell(round(ones(num_slices,1) * patient_HDFS_Code, 1));
+        slices_HDFS = num2cell(round(ones(num_slices,1) * patient_HFS_Time, 1));
         
         % Concatenate the slice file names, corresponding labels, and add
         % it to the table to be output at the end
         patient_all_data = [patient_all_data; 
-                            labelled_imgfilenames, slices_pat_num, slices_slice_num, slices_RFS_Code, slices_RFS];
+                            labelled_imgfilenames, slices_pat_num, slices_slice_num, slices_HDFS_Code, slices_HDFS];
     end
     
     writetable(patient_all_data, output_fname, 'writevariablenames', 1);
