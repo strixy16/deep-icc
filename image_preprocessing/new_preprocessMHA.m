@@ -75,14 +75,6 @@ function new_preprocessMHA(conf_f)
         % Find the distance between the upper and lower edges of the tumor
         temp_height = non_zero_rows(end) - non_zero_rows(1);
         
-        % Note: might remove this, calculating center in second loop
-        % instead
-        % Find the center x coordinate of the tumor
-%         ctr_x = non_zero_cols(1) + floor(temp_width/2);
-%         % Find the center y coordinate of the tumor
-%         ctr_y = non_zero_rows(1) + floor(temp_height/2);
-%         tumorCenters(currFile,:) = [ctr_x, ctr_y];
-        
         % Check if width and height are larger than existing
         if temp_width > maxWidth
             maxWidth = temp_width;
