@@ -1,4 +1,13 @@
 function findLabelled(conf_f)
+% Name: createCSV
+% Description: Function to copy all image files with a corresponding label 
+% to a distinct directory 
+%
+% INPUT: 
+%   conf_f       -- configuration file for different datasets
+%
+% Environment: MATLAB R2021a
+% Author: Katy Scott
     
     if ischar(conf_f) || isstring(conf_f)
         conf_f = str2func(conf_f);
@@ -38,12 +47,12 @@ function findLabelled(conf_f)
             disp(patient_ID);
         end
 
-%         for file_idx = 1:size(files_to_move, 1)
-%             source = strcat(options.all_file_dir, files_to_move{file_idx});
-%             destination = strcat(options.destination_dir, files_to_move{file_idx});
-% 
-%             status = copyfile(source, destination);
-%         end
+        for file_idx = 1:size(files_to_move, 1)
+            source = strcat(options.all_file_dir, files_to_move{file_idx});
+            destination = strcat(options.destination_dir, files_to_move{file_idx});
+
+            status = copyfile(source, destination);
+        end
 
     end
 end
