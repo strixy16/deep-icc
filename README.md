@@ -37,17 +37,22 @@ Remaining functions in this directory are helper functions or configuration file
 
 * ***old_code/***: :arrow_right: Code written in process of development. Was either broken and abandoned or absorbed into the files listed above.
 
+* ***Main directory*** :arrow_right: Mostly code for CNN model
+  * ***hdfs_config.py/hdfs_liver_config.py*** :arrow_right: Configuration files for the CNN model. Use this to set location of data files, model training setup and hyperparameters.
+  * ***hdfs_data_loading.py*** :arrow_right: Contains HDFS data class (works for Liver as well)
+  * ***hdfs_models.py*** :arrow_right: CNN model architectures and evaluation functions and classes.
+  * ***hdfs_train.py*** :arrow_right: Main model training file.
+  * ***model_performance_stats.ipynb*** :arrow_right: Notebook used to calculate c-index for each cancer type in the dataset for all models
+  * ***requirements.txt*** :arrow_right: Requirements to run the deep learning model (Note: this might be incomplete)
+
 
 ## Requirements 📋
-To run image preprocessing, MATLAB R2021a or later is required.
+Image preprocessing is completed in MATLAB using R2021A or later.
 
-To setup the model in a conda environment, run the following:
+Linear CoxPH model and Uno C-statistic calculation is completed in R.
 
-```setup
-conda create --name deepicc -f environment.yml
-jupyter lab
-```
-Make sure the kernel is set to Python3 and you can now run the main and data_explore notebooks.
+All remaining code is completed in Python.
+
 
 ## Image Preprocessing 🖼️
 
