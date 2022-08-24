@@ -28,7 +28,9 @@ Remaining functions in this directory are helper functions or configuration file
   * ***linear_CPH.ipynb*** :arrow_right: Notebook to perform the assumptions checking for the lienar CPH (censoring and proportional hazards)
   * ***survcurv_cancertype.ipynb*** :arrow_right: Notebook for generation of survival curves and data distribution for each cancer type.
 
-
+* ***R_code/***
+  * ***linear_CPH/*** :arrow_right: code to run a linear Cox Proportional Hazards model using extracted radiomic features. The file name indicates what image set was used and the train-test split (e.g. liver_CPH_90_10 used features from the liver images with no tumour and 90:10 train test split)
+  * ***CNN_UnoC_calculations/*** :arrow_right: code to calculate Uno's C-statistic for the results of the deep learning CNN model
 
 * ***RandomSurvivalForest/***
   * ***hdfs_random_forest.ipynb*** :arrow_right: Jupyter notebook creating Random Survival Forests for the liver, tumour, and liver with tumour images. Uno's c-index calculations and confidence intervals are both calculated within this notebook.
