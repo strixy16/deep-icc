@@ -54,31 +54,20 @@ Linear CoxPH model and Uno C-statistic calculation is completed in R.
 All remaining code is completed in Python.
 
 
-## Image Preprocessing 🖼️
+## Radiomic Feature Extraction  🩻
 
-To use the MATLAB preprocessing functions, preprocessMHA and createCSV, you will need:
+
+
+## Image Preprocessing for CNN 🖼️
+
+To use the MATLAB preprocessing functions, you will need:
 * A directory of corresponding MHD and raw files
-* A spreadsheet with labels for each sample
+* A spreadsheet with labels for each sample (event, time, cancer type (numbered))
 
-First create a configuration file for your dataset. You can follow the setup of msk_tumor and all_tumors. The variables required are:
-
-*For preprocessMHA*
-* ImageSize: dimensions to crop your image to for the network (ex. \[256 x 256]) 
-* ImageLoc: path to the directory your MHD and raw files are in
-* BinLoc: path to the directory to store the output BIN files
-
-*For createCSV*
-* ZeroLoc: path to directory of BIN files with zeros for background
-* Labels: path to spreadsheet file containing labels 
-* CSV_header: Set headings for label output CSV
-* OutputCSV: path and name of output CSV linking labels to BIN files
-
-To crop images based on max height and width for that set, run this command in MATLAB:
-``` 
-preprocessMHA(config_file);
-createCSV(config_file); 
-```
-This should generate a directory of individual BIN files for each slice of the MHD volume and a corresponding CSV label file.
+1. First create the configuration files for your dataset. You can follow the setup of all_HDFS_liver.m for main_preprocessing and then add HDFS_train_liver.m, and HDFS_test_liver.m for main_train_test_script.m.
+2. Set up the config variable in main_preprocessing.m and main_train_test_script.m
+3. Run main_preprocessing.m. This should generate a directory of preprocessed bin files and a spreadsheet of corresponding labels for the CNN model.
+4. Run main_train_test_script.m. This should copy the bin files in the corresponding train or test directory and make corresponding labels for them.
 
 ## Model Training 🏃
 
