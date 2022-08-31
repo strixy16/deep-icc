@@ -53,16 +53,19 @@ Linear CoxPH model and Uno C-statistic calculation is completed in R.
 
 All remaining code is completed in Python.
 
-
-## Radiomic Feature Extraction  🩻
-
-
-
-## Image Preprocessing for CNN 🖼️
-
-To use the MATLAB preprocessing functions, you will need:
+To use these functions, you will need:
 * A directory of corresponding MHD and raw files
 * A spreadsheet with labels for each sample (event, time, cancer type (numbered))
+
+## Radiomic Feature Extraction  🩻
+This section will generate a spreadsheet of radiomic features extracted from liver and tumour MHD and raw files. The features will be from the first-order feature set, shape (3D) feature set, and neighbourhood grey tone difference matrix set from PyRadiomics (https://pyradiomics.readthedocs.io/en/latest/features.html)
+
+1. Between lines 14 and 36, set up the tumor_dir, liver_dir, cancer_type and lbl_file_name variables with the correct directories and cancer types. Cancer type was used to pick a label file with the contained cancer types included in the file name (e.g. HCC_HDFS_labels or HCC_MCRC_ICC_labels)
+2. If you want feature extraction on the entire liver parenchyma, including the tumour region, then uncomment lines 105/106. 
+3. From lines 204-209, set up the output path and file name for the feature spreadsheets.
+4. Can now run the function and should generate the corresponding spreadsheets
+
+## Image Preprocessing for CNN 🖼️
 
 1. First create the configuration files for your dataset. You can follow the setup of all_HDFS_liver.m for main_preprocessing and then add HDFS_train_liver.m, and HDFS_test_liver.m for main_train_test_script.m.
 2. Set up the config variable in main_preprocessing.m and main_train_test_script.m
