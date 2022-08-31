@@ -57,20 +57,30 @@ To use these functions, you will need:
 * A directory of corresponding MHD and raw files
 * A spreadsheet with labels for each sample (event, time, cancer type (numbered))
 
-## Radiomic Feature Extraction  🩻
-This section will generate a spreadsheet of radiomic features extracted from liver and tumour MHD and raw files. The features will be from the first-order feature set, shape (3D) feature set, and neighbourhood grey tone difference matrix set from PyRadiomics (https://pyradiomics.readthedocs.io/en/latest/features.html)
-
-1. Between lines 14 and 36, set up the tumor_dir, liver_dir, cancer_type and lbl_file_name variables with the correct directories and cancer types. Cancer type was used to pick a label file with the contained cancer types included in the file name (e.g. HCC_HDFS_labels or HCC_MCRC_ICC_labels)
-2. If you want feature extraction on the entire liver parenchyma, including the tumour region, then uncomment lines 105/106. 
-3. From lines 204-209, set up the output path and file name for the feature spreadsheets.
-4. Can now run the function and should generate the corresponding spreadsheets
-
-## Image Preprocessing for CNN 🖼️
+## Image Preprocessing for CNN and train/test splitting 🖼️
 
 1. First create the configuration files for your dataset. You can follow the setup of all_HDFS_liver.m for main_preprocessing and then add HDFS_train_liver.m, and HDFS_test_liver.m for main_train_test_script.m.
 2. Set up the config variable in main_preprocessing.m and main_train_test_script.m
-3. Run main_preprocessing.m. This should generate a directory of preprocessed bin files and a spreadsheet of corresponding labels for the CNN model.
-4. Run main_train_test_script.m. This should copy the bin files in the corresponding train or test directory and make corresponding labels for them.
+3. Run main_preprocessing.m. This should generate a directory of preprocessed bin files and a spreadsheet of corresponding labels for the CNN model. The bin files represent the individual CT image slices.
+4. Run main_train_test_script.m. This should copy the bin files in the corresponding train or test directory and make corresponding labels for them, both at the slice level and patient level.
+
+## Radiomic Feature Extraction  🩻
+This section will generate a spreadsheet of radiomic features extracted from liver and tumour MHD and raw files. The features will be from the first-order feature set, shape (3D) feature set, and neighbourhood grey tone difference matrix set from PyRadiomics (https://pyradiomics.readthedocs.io/en/latest/features.html)
+
+1. Open data_exploration/feature_selection.py
+2. Between lines 14 and 36, set up the tumor_dir, liver_dir, cancer_type and lbl_file_name variables with the correct directories and cancer types. Cancer type was used to pick a label file with the contained cancer types included in the file name (e.g. HCC_HDFS_labels or HCC_MCRC_ICC_labels)
+3. If you want feature extraction on the entire liver parenchyma, including the tumour region, then uncomment lines 105/106. 
+4. From lines 204-209, set up the output path and file name for the feature spreadsheets.
+5. Can now run feature_selection.py and should generate the corresponding spreadsheets
+
+## CoxPH Model 📉
+This section completes assumption checking and runs the CoxPH model
+
+1. Open data_exploration/linear_CPH.ipynb 
+2. Set up all the Data Loading paths and file names
+3. Check the censoring and Kaplan-Meier curves for each radiomic feature.
+4. Ignore the Cox models at the bottom of this notebook - will move to R for actual modelling.
+5. In R_code/linear_CPH/, open the appropriate file for the dataset you're working with (liver, tumour, etc.)
 
 ## Model Training 🏃
 
