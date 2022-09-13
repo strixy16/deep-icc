@@ -91,8 +91,8 @@ This section builds the Random Survival Forest models from the radiomic features
 1. Open RandomSurvivalForest/hdfs_random_forest.ipynb
 2. Down in the Main Script section are subsections for each ROI. Here you can set up the file paths for the radiomic features spreadsheets. Most of the code in the first box splits up the data into each cancer subtype.
 3. These next sections repeat for each region of interest 
-  i. The next section performs the feature selection using variance inflation thresholding and hazard ratio ranks. If a warning comes up saying a selected feature has very low variance, you can drop it as well.
-  ii. Models are optimized using a grid search and k-fold cross validation. You can set the values for the grid search in the first block of Model Training
+    1. The next section performs the feature selection using variance inflation thresholding and hazard ratio ranks. If a warning comes up saying a selected feature has very low variance, you can drop it as well.
+    2. Models are optimized using a grid search and k-fold cross validation. You can set the values for the grid search in the first block of Model Training
 
 ## Model Training 🏃
 
