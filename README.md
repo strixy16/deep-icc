@@ -80,7 +80,15 @@ This section completes assumption checking and runs the CoxPH model
 2. Set up all the Data Loading paths and file names
 3. Check the censoring and Kaplan-Meier curves for each radiomic feature.
 4. Ignore the Cox models at the bottom of this notebook - will move to R for actual modelling.
-5. In R_code/linear_CPH/, open the appropriate file for the dataset you're working with (liver, tumour, etc.)
+5. In R_code/linear_CPH/, open linear_CPH_X_Y.R, where X and Y are the train and test percentages respectively/
+6. Set up the load paths to the spreadsheet of radiomic features for each region of interest.
+7. On the ROI.fit lines (e.g. 35), enter the features that you want to build the CPH with (that passed the assumptions). The order of these will slightly change the results so be consistent.
+8. This file also completes bootstrapping. To disable this, comment out lines 124-149.
+
+## Random Survival Forest 🌳
+This section builds the Random Survival Forest models from the radiomic features.
+
+1. 
 
 ## Model Training 🏃
 
