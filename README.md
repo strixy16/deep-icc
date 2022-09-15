@@ -99,9 +99,12 @@ This section builds the Random Survival Forest models from the radiomic features
     6. This optimized model will be evaluated using the entire test set and each cancer subtype within it independently. Then bootstrapping can be run.
 
 ## 2D Convolutional Neural Network 🧠
-This section sets up the data loading and training for the CNN using the 2D slices from [Image Preprocessing](#Image_Preprocessing)
+This section sets up the data loading and training for the CNN using the 2D slices from [Image Preprocessing](#Image_Preprocessing). requirements.txt contains the requirements to run this code. These can be installed using pip or a conda environment (some only exist in one or the other)
 
-
+1. First you need to set up a config file like hdfs_config or hdfs_liver_config. This contains the settings for data loading and training the CNN. To find the corresponding argument in hdfs_train, look for args.VARIABLE_NAME. While working on getting set up, make sure to set DEBUG as True so you're not creating a bunch of output files, and set the number of epochs to a low value (e.g. 5 or 10). To see the MODEL_NAME options, you can look in hdfs_models.py
+2. In hdfs_train.py, at line 15 set up your new config file to be imported as args.
+3. The first time you run anything, in hdfs_model.py uncomment lines 12-15. This imports the R libraries needed to calculate Uno's C-statistic. You should only need to run these lines once and then you can comment it again.
+4. Run hdfs_train.py.
 
 
 
