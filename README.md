@@ -98,12 +98,8 @@ This section builds the Random Survival Forest models from the radiomic features
     5. Once you've tuned the model, you can move to final model selection and bootstrapping and set the model arguments with the optimized values.
     6. This optimized model will be evaluated using the entire test set and each cancer subtype within it independently. Then bootstrapping can be run.
 
-## Model Training 🏃
-
-Model creation and training is available in `main.ipynb`
-
-The data used to train the KT6 model described in the report is not publicly available. 
-Output from training this model is included in the notebook. `ckpts-kt-100` contains the stored training checkpoints that can be loaded into the Tensorboard at the end of the notebook.
+## 2D Convolutional Neural Network 🧠
+This section sets up the data loading and training for the CNN using the 2D slices from [Image Preprocessing](#image-preprocessing-for-cnn-and-traintest-splitting-🖼️)
 
 
 
