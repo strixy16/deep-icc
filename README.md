@@ -57,7 +57,7 @@ To use these functions, you will need:
 * A directory of corresponding MHD and raw files
 * A spreadsheet with labels for each sample (event, time, cancer type (numbered))
 
-## Image Preprocessing for CNN and train/test splitting 🖼️
+## Image Preprocessing for CNN and train/test splitting 🖼️<a name="Image_Preprocessing"></a>
 
 1. First create the configuration files for your dataset. You can follow the setup of all_HDFS_liver.m for main_preprocessing and then add HDFS_train_liver.m, and HDFS_test_liver.m for main_train_test_script.m.
 2. Set up the config variable in main_preprocessing.m and main_train_test_script.m
@@ -99,7 +99,7 @@ This section builds the Random Survival Forest models from the radiomic features
     6. This optimized model will be evaluated using the entire test set and each cancer subtype within it independently. Then bootstrapping can be run.
 
 ## 2D Convolutional Neural Network 🧠
-This section sets up the data loading and training for the CNN using the 2D slices from [Image Preprocessing](#image-preprocessing-for-cnn-and-traintest-splitting-🖼️)
+This section sets up the data loading and training for the CNN using the 2D slices from [Image Preprocessing](#Image_Preprocessing)
 
 
 
