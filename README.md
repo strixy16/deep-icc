@@ -99,7 +99,7 @@ This section builds the Random Survival Forest models from the radiomic features
     6. This optimized model will be evaluated using the entire test set and each cancer subtype within it independently. Then bootstrapping can be run.
 
 ## 2D Convolutional Neural Network 🧠
-This section sets up the data loading and training for the CNN using the 2D slices from [Image Preprocessing](#image-preprocessing-for-cnn-and-traintest-splitting-🖼️)Image_Preprocessing<a name="image-preprocessing-for-cnn-and-traintest-splitting-🖼️"></a>
+This section sets up the data loading and training for the CNN using the 2D slices from [Image Preprocessing](#image-preprocessing-for-cnn-and-traintest-splitting-🖼️)
 
 
 
